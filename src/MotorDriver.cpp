@@ -7,6 +7,7 @@ namespace composition {
 MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options) {
     motor_server = this->create_service<arcade_control::srv::JoystickInput>("/joystick_input",
 		std::bind(&MotorDriver::motor_server_callback, this, _1, _2));
+	std::cout << "created service" <<std::endl;
 
     speed_pub = this->create_publisher<arcade_control::msg::Speed>(
         "/cmd_vel", 10);

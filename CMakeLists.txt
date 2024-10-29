@@ -30,26 +30,47 @@ ament_target_dependencies(motor_driver
 	"rclcpp"
 	"rclcpp_components"
 )
-rosidl_target_interfaces(motor_driver ${PROJECT_NAME} "rosidl_typesupport_cpp") # need for custom srv
+
+rosidl_target_interfaces(motor_driver ${PROJECT_NAME} "rosidl_typesupport_cpp")
 rclcpp_components_register_nodes(motor_driver "composition::MotorDriver")
 
+add_executable(motor_executable src/main.cpp)
+target_link_libraries(motor_executable
+  motor_driver
+)
+ament_target_dependencies(motor_executable
+  rclcpp
+  rclcpp_components
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_gtest REQUIRED)
+  
+  ament_add_gtest(joystick_test test/joystick_test.cpp)
+  
+  # Link against the motor_driver component library
+  target_link_libraries(joystick_test
+    motor_driver
+  )
+  
+  # Link the test with the interfaces
+  rosidl_target_interfaces(joystick_test ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  
+  ament_target_dependencies(joystick_test
+    rclcpp
+    rclcpp_components
+  )
 endif()
 
 # Install targets
 install(TARGETS
   motor_driver
+  motor_executable  
   ARCHIVE DESTINATION lib
-	LIBRARY DESTINATION lib 
-	RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION lib 
+  RUNTIME DESTINATION bin
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()
