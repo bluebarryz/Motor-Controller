@@ -43,10 +43,10 @@ protected:
     rclcpp::Subscription<arcade_control::msg::Speed>::SharedPtr speed_sub;
     arcade_control::msg::Speed::SharedPtr last_speed_msg;
 
-    bool SendJoystickInput(float x, float y) {
+    bool SendJoystickInput(float rotate, float drive) {
         auto request = std::make_shared<arcade_control::srv::JoystickInput::Request>();
-        request->x = x;
-        request->y = y;
+        request->x = rotate;
+        request->y = drive;
 
         if (!client->wait_for_service(1s)) {
             RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
@@ -76,7 +76,7 @@ protected:
     }
     
     // Wait for the /cmd_vel subscriber to receive the expected speed values
-    bool WaitForSpeedMessage(float expected_r, float expected_l, const std::chrono::seconds timeout = std::chrono::seconds(5)) {
+    bool WaitForSpeedMessage(float expected_r, float expected_l, const std::chrono::seconds timeout = std::chrono::seconds(3)) {
         auto start_time = std::chrono::steady_clock::now();
         
         while (true) {
@@ -99,30 +99,47 @@ protected:
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
+
+    void assert_motor_speed(float joystick_rotate, float joystick_drive, float expected_l, float expected_r) {
+        ASSERT_TRUE(SendJoystickInput(joystick_rotate, joystick_drive));
+        ASSERT_TRUE(WaitForSpeedMessage(expected_l, expected_r));
+        ASSERT_NE(last_speed_msg, nullptr);
+        
+        EXPECT_FLOAT_EQ(last_speed_msg->l, expected_l);
+        EXPECT_FLOAT_EQ(last_speed_msg->r, expected_r);
+    }
 };
 
 TEST_F(TestMotorDriver, Test1) {
     std::cout << "Test1" <<std::endl;
-    ASSERT_TRUE(SendJoystickInput(0.5, 0.3));
     
-    ASSERT_TRUE(WaitForSpeedMessage(5.0, 5.0));
-    std::cout << last_speed_msg->r << std::endl;
-    ASSERT_NE(last_speed_msg, nullptr);
+    float joystick_rotate = 0.0;
+    float joystick_drive = 1.0;
+    float expected_l = 1.0;
+    float expected_r = 1.0;
+    assert_motor_speed(joystick_rotate, joystick_drive, expected_l, expected_r);
     
-    EXPECT_FLOAT_EQ(last_speed_msg->r, 5.0);
-    EXPECT_FLOAT_EQ(last_speed_msg->l, 5.0);
 }
 
 TEST_F(TestMotorDriver, Test2) {
-    ASSERT_TRUE(SendJoystickInput(0.1, -0.8));
-        
-    ASSERT_TRUE(WaitForSpeedMessage(5.0, 5.0));
-    std::cout << last_speed_msg->r << std::endl;
-    ASSERT_NE(last_speed_msg, nullptr);
-    
-    EXPECT_FLOAT_EQ(last_speed_msg->r, 5.0);
-    EXPECT_FLOAT_EQ(last_speed_msg->l, 5.0);
+    float joystick_rotate = 0.0;
+    float joystick_drive = 0 - 1.0;
+    float expected_l = 0 - 1.0;
+    float expected_r = 0 - 1.0;
+    assert_motor_speed(joystick_rotate, joystick_drive, expected_l, expected_r);
 }
+
+// TEST_F(TestMotorDriver, Test3) {
+//     float joystick_rotate_0 = 0.5;
+//     float joystick_drive_0 = 0.5;
+//     float expected_l_0 = 0.5;
+//     float expected_r_0 = 0;
+//     assert_motor_speed(joystick_rotate_0, joystick_drive_0, expected_l_0, expected_r_0);
+
+//     float joystick_rotate = 0.01;
+//     float joystick_drive = 0 - 0.05;
+//     assert_motor_speed(joystick_rotate, joystick_drive, expected_l_0, expected_r_0);
+// }
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
