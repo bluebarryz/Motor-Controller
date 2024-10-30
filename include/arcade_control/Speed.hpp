@@ -1,4 +1,4 @@
 struct Speed {
-    int r;
-    int l;
+    float l;
+    float r;
 };

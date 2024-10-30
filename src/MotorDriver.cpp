@@ -5,7 +5,7 @@ using namespace std::placeholders;
 
 namespace composition {
 
-MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options) {
+MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options), prev_joystick_rotate(-2), prev_joystick_drive(-2) {
     motor_server = this->create_service<arcade_control::srv::JoystickInput>("/joystick_input",
 		std::bind(&MotorDriver::motor_server_callback, this, _1, _2));
 	std::cout << "created service" <<std::endl;
@@ -14,13 +14,19 @@ MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_drive
         "/cmd_vel", 10);
 }
 
+bool MotorDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
+	return (fabs(new_joystick_rotate - prev_joystick_rotate) < THRESHOLD || 
+		fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
+}
+
 void MotorDriver::motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
     std::shared_ptr<arcade_control::srv::JoystickInput::Response> response) {
     
-	// if (fabs(request->x) <= 0.1 || fabs(request->y) <= 0.1) {
-	// 	response->success = true;
-	// 	return;
-	// }
+	if (is_negligible_joystick_change(request->x, request->y)) {
+		std::cout << "negligible!" << std::endl;
+		response->success = true;
+		return;
+	}
 
 	Speed motor_speed = MotorDriver::joystick_to_speed_mapper(request->x, request->y);
 	auto msg = arcade_control::msg::Speed();
@@ -29,9 +35,11 @@ void MotorDriver::motor_server_callback(const std::shared_ptr<arcade_control::sr
 
 	speed_pub->publish(std::move(msg));
 	response->success = true;
+	prev_joystick_rotate = request->x;
+	prev_joystick_drive = request->y;
 }
 
-Speed MotorDriver::joystick_to_speed_mapper(const int joystick_rotate, const int joystick_drive) {
+Speed MotorDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
 	const float MAX = fmax(fabs(joystick_drive), fabs(joystick_rotate));
 	const float DIFF = joystick_drive - joystick_rotate;
 	const float TOTAL = joystick_drive + joystick_rotate;
@@ -56,8 +64,9 @@ Speed MotorDriver::joystick_to_speed_mapper(const int joystick_rotate, const int
             right_motor(difference)
 	*/
 
-	int left_motor;
-	int right_motor;
+	float left_motor;
+	float right_motor;
+
 	if (joystick_drive >= 0) {
 		if (joystick_rotate >= 0) {
 			left_motor = MAX;
@@ -75,6 +84,9 @@ Speed MotorDriver::joystick_to_speed_mapper(const int joystick_rotate, const int
 			right_motor = DIFF;
 		}
 	}
+
+	RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "joystick: x=%.2f, y=%.2f, speed: l=%.2f, r=%.2f", joystick_rotate, joystick_drive, left_motor, right_motor);
+
 
 	return Speed{left_motor, right_motor};
 }
