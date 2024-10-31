@@ -1,4 +1,4 @@
-struct Speed {
+struct ArcadeSpeed {
     float l;
     float r;
 };

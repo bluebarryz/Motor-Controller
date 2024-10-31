@@ -13,8 +13,8 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package='arcade_control',
-                    plugin='composition::MotorDriver',
-                    name='motor_driver')
+                    plugin='composition::ArcadeDriver',
+                    name='arcade_driverr')
             ]
         )
     ])

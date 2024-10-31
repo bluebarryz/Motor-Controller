@@ -1,35 +1,35 @@
-#include "arcade_control/MotorDriver.hpp"
+#include "arcade_control/ArcadeDriver.hpp"
 #include <cmath>
 
 using namespace std::placeholders;
 
 namespace composition {
 
-MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
+ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driverr", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
     motor_server = this->create_service<arcade_control::srv::JoystickInput>("/joystick_input",
-		std::bind(&MotorDriver::motor_server_callback, this, _1, _2));
+		std::bind(&ArcadeDriver::motor_server_callback, this, _1, _2));
 
-    speed_pub = this->create_publisher<arcade_control::msg::Speed>(
+    speed_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
         "/cmd_vel", 10);
 
-	RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "Completed setup of service and publisher");
+	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
 }
 
-bool MotorDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
+bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
 	return (fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
 }
 
-void MotorDriver::motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
+void ArcadeDriver::motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
     std::shared_ptr<arcade_control::srv::JoystickInput::Response> response) {
     
 	if (is_negligible_joystick_change(request->x, request->y)) {
-		RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "Negligibe joystick change");
+		RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Negligibe joystick change");
 		response->success = true;
 		return;
 	}
 
-	Speed motor_speed = MotorDriver::joystick_to_speed_mapper(request->x, request->y);
-	auto msg = arcade_control::msg::Speed();
+	ArcadeSpeed motor_speed = ArcadeDriver::joystick_to_speed_mapper(request->x, request->y);
+	auto msg = arcade_control::msg::ArcadeSpeed();
 	msg.r = motor_speed.r;
 	msg.l = motor_speed.l;
 
@@ -39,7 +39,7 @@ void MotorDriver::motor_server_callback(const std::shared_ptr<arcade_control::sr
 	prev_joystick_drive = request->y;
 }
 
-Speed MotorDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
+ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
 	const float MAX = fmax(fabs(joystick_drive), fabs(joystick_rotate));
 	const float DIFF = joystick_drive - joystick_rotate;
 	const float TOTAL = joystick_drive + joystick_rotate;
@@ -85,14 +85,14 @@ Speed MotorDriver::joystick_to_speed_mapper(const float joystick_rotate, const f
 		}
 	}
 
-	RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "joystick: x=%.2f, y=%.2f, speed: l=%.2f, r=%.2f", joystick_rotate, joystick_drive, left_motor, right_motor);
+	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "joystick: x=%.2f, y=%.2f, speed: l=%.2f, r=%.2f", joystick_rotate, joystick_drive, left_motor, right_motor);
 
 
-	return Speed{left_motor, right_motor};
+	return ArcadeSpeed{left_motor, right_motor};
 }
 
 
 } // namespace composition
 
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(composition::MotorDriver)
+RCLCPP_COMPONENTS_REGISTER_NODE(composition::ArcadeDriver)

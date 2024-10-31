@@ -16,22 +16,22 @@ find_package(builtin_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/JoystickInput.srv"
-  "msg/Speed.msg"
+  "msg/ArcadeSpeed.msg"
 	DEPENDENCIES builtin_interfaces
 	)
 ament_export_dependencies(rosidl_default_runtime)
 
-# motor_driver component
-add_library(motor_driver SHARED src/MotorDriver.cpp)
-target_compile_definitions(motor_driver
+# arcade_driverr component
+add_library(arcade_driverr SHARED src/ArcadeDriver.cpp)
+target_compile_definitions(arcade_driverr
 	PRIVATE "COMPOSITION_BUILDING_DLL"
 )
-ament_target_dependencies(motor_driver
+ament_target_dependencies(arcade_driverr
 	"rclcpp"
 	"rclcpp_components"
 )
-rosidl_target_interfaces(motor_driver ${PROJECT_NAME} "rosidl_typesupport_cpp")
-rclcpp_components_register_nodes(motor_driver "composition::MotorDriver")
+rosidl_target_interfaces(arcade_driverr ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rclcpp_components_register_nodes(arcade_driverr "composition::ArcadeDriver")
 
 
 if(BUILD_TESTING)
@@ -40,9 +40,9 @@ if(BUILD_TESTING)
   
   ament_add_gtest(joystick_test test/joystick_test.cpp)
   
-  # Link against the motor_driver component library
+  # Link against the arcade_driverr component library
   target_link_libraries(joystick_test
-    motor_driver
+    arcade_driverr
   )
   
   # Link the test with the interfaces
@@ -56,7 +56,7 @@ endif()
 
 # Install targets
 install(TARGETS
-  motor_driver  
+  arcade_driverr  
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib 
   RUNTIME DESTINATION bin
