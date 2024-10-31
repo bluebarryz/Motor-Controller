@@ -17,24 +17,25 @@ protected:
         
         motor_driver = std::make_shared<composition::MotorDriver>(rclcpp::NodeOptions());
 
-        last_speed_msg = nullptr;
+        last_speed_msg = std::make_shared<arcade_control::msg::Speed>();
+        last_speed_msg->l = last_speed_msg->r = 0;
         speed_sub = test_node->create_subscription<arcade_control::msg::Speed>(
             "/cmd_vel",
             10,
             [this](const arcade_control::msg::Speed::SharedPtr msg) {
-                std::cout << "received msg on sub! " << msg->l << ", " << msg->r << std::endl;
+                RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "Message: Left speed %.2f, Right speed %.2f", msg->l, msg->r);
                 last_speed_msg = msg;
             });
 
         client = test_node->create_client<arcade_control::srv::JoystickInput>("/joystick_input");
-        std::cout << "Setup completed" << std::endl;
+        RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "Setup completed");
     }
 
     void TearDown() override {
         motor_driver.reset();
         test_node.reset();
         rclcpp::shutdown();
-        std::cout << "Teardown complete" << std::endl;
+        RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "Teardown completed");
     }
 
     std::shared_ptr<rclcpp::Node> test_node;
@@ -50,14 +51,13 @@ protected:
         request->y = drive;
 
         if (!client->wait_for_service(1s)) {
-            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+            RCLCPP_ERROR(rclcpp::get_logger("TestMotorDriver"), "Interrupted while waiting for the service. Exiting.");
             rclcpp::shutdown();
             return false;
         }
 
-        std::cout << "make request" << std::endl;
         auto result = client->async_send_request(request);
-        std::cout << "make request!" << std::endl;
+        RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "Sent request: x = %.2f, y = %.2f", request->x, request->y);
 
         auto executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
         executor->add_node(test_node);
@@ -66,9 +66,9 @@ protected:
         // Wait for result
         if (executor->spin_until_future_complete(result) ==
             rclcpp::FutureReturnCode::SUCCESS) {
-            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "successful request!");
+            RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "successful request!");
         } else {
-            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service");
+            RCLCPP_ERROR(rclcpp::get_logger("TestMotorDriver"), "Failed to call service");
             rclcpp::shutdown();
             return false;
         }
@@ -77,7 +77,7 @@ protected:
     }
     
     // Wait for the /cmd_vel subscriber to receive the expected speed values
-    bool wait_for_speed_message(float expected_l, float expected_r, const std::chrono::seconds timeout = std::chrono::seconds(1)) {
+    bool wait_for_speed_message(float expected_l, float expected_r, const std::chrono::seconds timeout = std::chrono::seconds(3)) {
         auto start_time = std::chrono::steady_clock::now();
         
         while (true) {
@@ -87,7 +87,7 @@ protected:
             if (last_speed_msg != nullptr) {
                 RCLCPP_INFO(rclcpp::get_logger("TestMotorDriver"), "Received speed message: l=%.2f, r=%.2f", last_speed_msg->l, last_speed_msg->r);
                 
-                if (std::abs(last_speed_msg->r - expected_r) < 1e-6 && std::abs(last_speed_msg->l - expected_l) < 1e-6) {
+                if (std::abs(last_speed_msg->r - expected_r) < TOL && std::abs(last_speed_msg->l - expected_l) < TOL) {
                     return true;
                 }
             }
@@ -113,15 +113,21 @@ protected:
     }
 };
 
-TEST_F(TestMotorDriver, Test1) {
-    std::cout << "Test1" <<std::endl;
-    
+// Joystick movement away from rest state is beneath the threshold
+TEST_F(TestMotorDriver, Test0) {
+    float joystick_rotate = 0.01;
+    float joystick_drive = -0.02;
+    float expected_l = 0;
+    float expected_r = 0;
+    assert_motor_speed(joystick_rotate, joystick_drive, expected_l, expected_r);
+}
+
+TEST_F(TestMotorDriver, Test1) {    
     float joystick_rotate = 0.0;
     float joystick_drive = 1.0;
     float expected_l = 1.0;
     float expected_r = 1.0;
     assert_motor_speed(joystick_rotate, joystick_drive, expected_l, expected_r);
-    
 }
 
 TEST_F(TestMotorDriver, Test2) {

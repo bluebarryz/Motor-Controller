@@ -30,18 +30,9 @@ ament_target_dependencies(motor_driver
 	"rclcpp"
 	"rclcpp_components"
 )
-
 rosidl_target_interfaces(motor_driver ${PROJECT_NAME} "rosidl_typesupport_cpp")
 rclcpp_components_register_nodes(motor_driver "composition::MotorDriver")
 
-add_executable(motor_executable src/main.cpp)
-target_link_libraries(motor_executable
-  motor_driver
-)
-ament_target_dependencies(motor_executable
-  rclcpp
-  rclcpp_components
-)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -65,8 +56,7 @@ endif()
 
 # Install targets
 install(TARGETS
-  motor_driver
-  motor_executable  
+  motor_driver  
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib 
   RUNTIME DESTINATION bin

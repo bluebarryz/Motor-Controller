@@ -5,25 +5,25 @@ using namespace std::placeholders;
 
 namespace composition {
 
-MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options), prev_joystick_rotate(-2), prev_joystick_drive(-2) {
+MotorDriver::MotorDriver(const rclcpp::NodeOptions &options) : Node("motor_driver", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
     motor_server = this->create_service<arcade_control::srv::JoystickInput>("/joystick_input",
 		std::bind(&MotorDriver::motor_server_callback, this, _1, _2));
-	std::cout << "created service" <<std::endl;
 
     speed_pub = this->create_publisher<arcade_control::msg::Speed>(
         "/cmd_vel", 10);
+
+	RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "Completed setup of service and publisher");
 }
 
 bool MotorDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
-	return (fabs(new_joystick_rotate - prev_joystick_rotate) < THRESHOLD || 
-		fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
+	return (fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
 }
 
 void MotorDriver::motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
     std::shared_ptr<arcade_control::srv::JoystickInput::Response> response) {
     
 	if (is_negligible_joystick_change(request->x, request->y)) {
-		std::cout << "negligible!" << std::endl;
+		RCLCPP_INFO(rclcpp::get_logger("MotorDriver"), "Negligibe joystick change");
 		response->success = true;
 		return;
 	}
