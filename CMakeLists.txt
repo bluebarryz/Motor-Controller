@@ -39,24 +39,24 @@ rclcpp_components_register_nodes(arcade_driver "composition::ArcadeDriver")
 
 
 if(BUILD_TESTING)
-#  find_package(ament_lint_auto REQUIRED)
-#  find_package(ament_cmake_gtest REQUIRED)
-#  
-#  ament_add_gtest(joystick_test test/joystick_test.cpp)
-#  
-#  # Link against the arcade_driver component library
-#  target_link_libraries(joystick_test
-#    arcade_driver
-#  )
-#  
-#  # Link the test with the interfaces
-#  rosidl_target_interfaces(joystick_test ${PROJECT_NAME} "rosidl_typesupport_cpp")
-#  
-#  ament_target_dependencies(joystick_test
-#    rclcpp
-#    rclcpp_components
-#    geometry_msgs
-#  )
+  find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
+  
+  ament_add_gtest(joystick_test test/joystick_test.cpp)
+  
+  # Link against the arcade_driver component library
+  target_link_libraries(joystick_test
+    arcade_driver
+  )
+  
+  # Link the test with the interfaces
+  rosidl_target_interfaces(joystick_test ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  
+  ament_target_dependencies(joystick_test
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+  )
 endif()
 
 # Install targets

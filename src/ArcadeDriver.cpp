@@ -16,10 +16,9 @@ ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_dr
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
 }
 
+// joystick input is "negligible" if it is very close to (0, 0), basically
 bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
-	// RCLCPP_INFO(get_logger(), "is_negligible_joystick_change. new_joystick_rotate: %.2f, new_joystick_drive: %.2f, prev_joystick_rotate: %.2f, prev_joystick_drive: %.2f", new_joystick_rotate, new_joystick_drive, prev_joystick_rotate, prev_joystick_drive);
-	// RCLCPP_INFO(get_logger(), "diff: %.2f", fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive));
-	return (fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
+	return (fabs(new_joystick_rotate) + fabs(new_joystick_drive) < THRESHOLD);
 }
 
 void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {

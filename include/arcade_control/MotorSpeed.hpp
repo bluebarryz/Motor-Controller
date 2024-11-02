@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include "arcade_control/ArcadeSpeed.hpp"
 #include "arcade_control/srv/joystick_input.hpp"
-#include "arcade_control/msg/speed.hpp"
+#include "arcade_control/msg/arcade_speed.hpp"
 
 
 namespace composition {
@@ -13,7 +13,7 @@ private:
     rclcpp::Service<arcade_control::srv::JoystickInput>::SharedPtr motor_server;
 
     rclcpp::Subscription<arcade_control::msg::ArcadeSpeed>::SharedPtr arcade_driver_sub;
-    rclcpp::Publisher<arcade_control::msg::ArcadeSpeed>::SharedPtr speed_pub;
+    rclcpp::Publisher<arcade_control::msg::MotorSpeed>::SharedPtr motor_speed_pub;
 
     ArcadeSpeed joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive);
     void motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
