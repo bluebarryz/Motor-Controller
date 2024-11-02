@@ -14,7 +14,7 @@ def generate_launch_description():
                 ComposableNode(
                     package='arcade_control',
                     plugin='composition::ArcadeDriver',
-                    name='arcade_driverr')
+                    name='arcade_driver')
             ]
         )
     ])

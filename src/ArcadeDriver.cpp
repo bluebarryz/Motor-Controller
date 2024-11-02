@@ -5,38 +5,45 @@ using namespace std::placeholders;
 
 namespace composition {
 
-ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driverr", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
-    motor_server = this->create_service<arcade_control::srv::JoystickInput>("/joystick_input",
-		std::bind(&ArcadeDriver::motor_server_callback, this, _1, _2));
+ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driver", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
+	joystick_sub = this->create_subscription<geometry_msgs::msg::Twist>(
+        "/joystick_input", 10,
+        std::bind(&ArcadeDriver::joystick_callback, this, _1));
 
-    speed_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
+    arcade_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
         "/cmd_vel", 10);
 
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
 }
 
 bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
+	// RCLCPP_INFO(get_logger(), "is_negligible_joystick_change. new_joystick_rotate: %.2f, new_joystick_drive: %.2f, prev_joystick_rotate: %.2f, prev_joystick_drive: %.2f", new_joystick_rotate, new_joystick_drive, prev_joystick_rotate, prev_joystick_drive);
+	// RCLCPP_INFO(get_logger(), "diff: %.2f", fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive));
 	return (fabs(new_joystick_rotate - prev_joystick_rotate) + fabs(new_joystick_drive - prev_joystick_drive) < THRESHOLD);
 }
 
-void ArcadeDriver::motor_server_callback(const std::shared_ptr<arcade_control::srv::JoystickInput::Request> request,
-    std::shared_ptr<arcade_control::srv::JoystickInput::Response> response) {
+void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+	RCLCPP_INFO(get_logger(), "Received Twist message - linear.x: %.2f, angular.z: %.2f",
+                msg->linear.x, msg->angular.z);
+
+	float joystick_drive = msg->linear.x;
+    float joystick_rotate = msg->angular.z;
     
-	if (is_negligible_joystick_change(request->x, request->y)) {
+	if (is_negligible_joystick_change(joystick_rotate, joystick_drive)) {
 		RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Negligibe joystick change");
-		response->success = true;
 		return;
 	}
 
-	ArcadeSpeed motor_speed = ArcadeDriver::joystick_to_speed_mapper(request->x, request->y);
-	auto msg = arcade_control::msg::ArcadeSpeed();
-	msg.r = motor_speed.r;
-	msg.l = motor_speed.l;
+	ArcadeSpeed arcade_speed = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
+	auto arcade_msg = arcade_control::msg::ArcadeSpeed();
+	arcade_msg.r = arcade_speed.r;
+	arcade_msg.l = arcade_speed.l;
+	RCLCPP_INFO(get_logger(), "Publishing ArcadeSpeed - left: %.2f, right: %.2f",
+                arcade_msg.l, arcade_msg.r);
+	arcade_pub->publish(std::move(arcade_msg));
 
-	speed_pub->publish(std::move(msg));
-	response->success = true;
-	prev_joystick_rotate = request->x;
-	prev_joystick_drive = request->y;
+	prev_joystick_rotate = joystick_rotate;
+	prev_joystick_drive = joystick_drive;
 }
 
 ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
