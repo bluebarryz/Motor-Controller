@@ -16,8 +16,8 @@ find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/JoystickInput.srv"
   "msg/ArcadeSpeed.msg"
+  "msg/MotorSpeeds.msg"
 	DEPENDENCIES builtin_interfaces geometry_msgs
 	)
 ament_export_dependencies(rosidl_default_runtime)
@@ -35,6 +35,20 @@ ament_target_dependencies(arcade_driver
 )
 rosidl_target_interfaces(arcade_driver ${PROJECT_NAME} "rosidl_typesupport_cpp")
 rclcpp_components_register_nodes(arcade_driver "composition::ArcadeDriver")
+#########
+
+
+#### motor_speed_controller component ###
+add_library(motor_speed_controller SHARED src/MotorSpeedController.cpp)
+target_compile_definitions(motor_speed_controller
+	PRIVATE "COMPOSITION_BUILDING_DLL"
+)
+ament_target_dependencies(motor_speed_controller
+	"rclcpp"
+	"rclcpp_components"
+)
+rosidl_target_interfaces(motor_speed_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rclcpp_components_register_nodes(motor_speed_controller "composition::MotorSpeedController")
 #########
 
 
@@ -61,7 +75,8 @@ endif()
 
 # Install targets
 install(TARGETS
-  arcade_driver  
+  arcade_driver
+  motor_speed_controller
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib 
   RUNTIME DESTINATION bin

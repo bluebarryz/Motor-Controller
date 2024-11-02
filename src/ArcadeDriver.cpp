@@ -5,7 +5,7 @@ using namespace std::placeholders;
 
 namespace composition {
 
-ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driver", options), prev_joystick_rotate(0), prev_joystick_drive(0) {
+ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driver", options) {
 	joystick_sub = this->create_subscription<geometry_msgs::msg::Twist>(
         "/joystick_input", 10,
         std::bind(&ArcadeDriver::joystick_callback, this, _1));
@@ -41,8 +41,6 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
                 arcade_msg.l, arcade_msg.r);
 	arcade_pub->publish(std::move(arcade_msg));
 
-	prev_joystick_rotate = joystick_rotate;
-	prev_joystick_drive = joystick_drive;
 }
 
 ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {

@@ -16,8 +16,6 @@ private:
     ArcadeSpeed joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive);
     void joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
     bool is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive);
-    float prev_joystick_rotate;
-    float prev_joystick_drive;
     const float THRESHOLD = 0.05;
 };
 
