@@ -1,5 +1,4 @@
 #include <rclcpp/rclcpp.hpp>
-#include "arcade_control/MotorSpeeds.hpp"
 #include "arcade_control/msg/arcade_speed.hpp"
 #include "arcade_control/msg/motor_speeds.hpp"
 
@@ -18,7 +17,7 @@ private:
 
     // function(s) to compute motor speeds
     void arcade_callback(const arcade_control::msg::ArcadeSpeed arcade_msg);
-    MotorSpeeds compute_motor_speeds(const float arcade_l, const float arcade_r);
+    arcade_control::msg::MotorSpeeds compute_motor_speeds(const float arcade_l, const float arcade_r);
 };
 
 } // namespace composition

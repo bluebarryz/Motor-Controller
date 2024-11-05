@@ -7,11 +7,11 @@ namespace composition {
 
 ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driver", options) {
 	joystick_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/joystick_input", 10,
-        std::bind(&ArcadeDriver::joystick_callback, this, _1));
+		"/joystick_input", 10,
+		std::bind(&ArcadeDriver::joystick_callback, this, _1));
 
-    arcade_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
-        "/cmd_vel", 10);
+	arcade_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
+		"/cmd_vel", 10);
 
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
 }
@@ -23,49 +23,49 @@ bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate
 
 void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
 	RCLCPP_INFO(get_logger(), "Received Twist message - linear.x: %.2f, angular.z: %.2f",
-                msg->linear.x, msg->angular.z);
+				msg->linear.x, msg->angular.z);
 
 	float joystick_drive = msg->linear.x;
-    float joystick_rotate = msg->angular.z;
-    
+	float joystick_rotate = msg->angular.z;
+
 	if (is_negligible_joystick_change(joystick_rotate, joystick_drive)) {
 		RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Negligibe joystick change");
 		return;
 	}
 
-	ArcadeSpeed arcade_speed = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
-	auto arcade_msg = arcade_control::msg::ArcadeSpeed();
-	arcade_msg.r = arcade_speed.r;
-	arcade_msg.l = arcade_speed.l;
+	arcade_control::msg::ArcadeSpeed arcade_msg = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
+	// auto arcade_msg = arcade_control::msg::ArcadeSpeed();
+	// arcade_msg.r = arcade_speed.r;
+	// arcade_msg.l = arcade_speed.l;
 	RCLCPP_INFO(get_logger(), "Publishing ArcadeSpeed - left: %.2f, right: %.2f",
-                arcade_msg.l, arcade_msg.r);
+				arcade_msg.l, arcade_msg.r);
 	arcade_pub->publish(std::move(arcade_msg));
 
 }
 
-ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
+arcade_control::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
 	const float MAX = fmax(fabs(joystick_drive), fabs(joystick_rotate));
 	const float DIFF = joystick_drive - joystick_rotate;
 	const float TOTAL = joystick_drive + joystick_rotate;
 
 	/*
 	maximum = max(abs(drive), abs(rotate))
-    total, difference = drive + rotate, drive - rotate
-	 # set speed according to the quadrant that the values are in
-    if drive >= 0:
-        if rotate >= 0:  # I quadrant
-            left_motor(maximum)
-            right_motor(difference)
-        else:            # II quadrant
-            left_motor(total)
-            right_motor(maximum)
-    else:
-        if rotate >= 0:  # IV quadrant
-            left_motor(total)
-            right_motor(-maximum)
-        else:            # III quadrant
-            left_motor(-maximum)
-            right_motor(difference)
+	total, difference = drive + rotate, drive - rotate
+		# set speed according to the quadrant that the values are in
+	if drive >= 0:
+		if rotate >= 0:  # I quadrant
+			left_motor(maximum)
+			right_motor(difference)
+		else:            # II quadrant
+			left_motor(total)
+			right_motor(maximum)
+	else:
+		if rotate >= 0:  # IV quadrant
+			left_motor(total)
+			right_motor(-maximum)
+		else:            # III quadrant
+			left_motor(-maximum)
+			right_motor(difference)
 	*/
 
 	float left_motor;
@@ -91,8 +91,10 @@ ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, 
 
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "joystick: x=%.2f, y=%.2f, speed: l=%.2f, r=%.2f", joystick_rotate, joystick_drive, left_motor, right_motor);
 
-
-	return ArcadeSpeed{left_motor, right_motor};
+	auto arcade_msg = arcade_control::msg::ArcadeSpeed();
+	arcade_msg.l = left_motor;
+	arcade_msg.r = right_motor;
+	return arcade_msg;
 }
 
 
