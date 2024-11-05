@@ -120,6 +120,12 @@ protected:
         
         EXPECT_NEAR(last_arcade_speed_msg->l, expected_l, TOL);
         EXPECT_NEAR(last_arcade_speed_msg->r, expected_r, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m1, 0.8 * expected_l, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m2, expected_l, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m3, expected_l, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m4, 0.8 * expected_r, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m5, expected_r, TOL);
+        EXPECT_NEAR(last_motor_speed_msg->m6, expected_r, TOL);
     }
 };
 
