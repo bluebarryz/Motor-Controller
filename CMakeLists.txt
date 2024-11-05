@@ -58,9 +58,10 @@ if(BUILD_TESTING)
   
   ament_add_gtest(joystick_test test/joystick_test.cpp)
   
-  # Link against the arcade_driver component library
+  # Link against the arcade_driver and motor_speed_controller component libraries
   target_link_libraries(joystick_test
     arcade_driver
+    motor_speed_controller
   )
   
   # Link the test with the interfaces

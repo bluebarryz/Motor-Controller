@@ -18,14 +18,6 @@ void MotorSpeedController::arcade_callback(const arcade_control::msg::ArcadeSpee
     float arcade_right = arcade_msg.r;
 
     arcade_control::msg::MotorSpeeds motor_speeds_msg = MotorSpeedController::compute_motor_speeds(arcade_left, arcade_right);
-    // auto motor_speeds_msg = arcade_control::msg::MotorSpeeds();
-    // motor_speeds_msg.m1 = motor_speed_values.m1;
-    // motor_speeds_msg.m2 = motor_speed_values.m2;
-    // motor_speeds_msg.m3 = motor_speed_values.m3;
-    // motor_speeds_msg.m4 = motor_speed_values.m4;
-    // motor_speeds_msg.m5 = motor_speed_values.m5;
-    // motor_speeds_msg.m6 = motor_speed_values.m6;
-
     motor_speeds_pub->publish(std::move(motor_speeds_msg));
 }
 
