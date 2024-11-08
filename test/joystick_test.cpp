@@ -151,7 +151,7 @@ arcade_control::msg::MotorSpeeds::SharedPtr TestArcadeDriver::last_motor_speed_m
 TEST_F(TestArcadeDriver, Test0) {
     float joystick_rotate = 0.01;
     float joystick_drive = -0.02;
-    float expected_l = 0;
+    float expected_l = 0; // arcade speed should still be 0 because joystick did not exceed threshold
     float expected_r = 0;
     assert_speeds(joystick_rotate, joystick_drive, expected_l, expected_r);
 }
@@ -215,6 +215,30 @@ TEST_F(TestArcadeDriver, Test7) {
     float joystick_drive = -0.68;
     float expected_l = -0.56;
     float expected_r = -0.68;
+    assert_speeds(joystick_rotate, joystick_drive, expected_l, expected_r);
+}
+
+TEST_F(TestArcadeDriver, Test8) {
+    float joystick_rotate = 0.8;
+    float joystick_drive = 0;
+    float expected_l = 0.8;
+    float expected_r = -0.8;
+    assert_speeds(joystick_rotate, joystick_drive, expected_l, expected_r);
+}
+
+TEST_F(TestArcadeDriver, Test9) {
+    float joystick_rotate = -0.12;
+    float joystick_drive = 0;
+    float expected_l = -0.12;
+    float expected_r = 0.12;
+    assert_speeds(joystick_rotate, joystick_drive, expected_l, expected_r);
+}
+
+TEST_F(TestArcadeDriver, Test10) {
+    float joystick_rotate = -0.18;
+    float joystick_drive = 0.1;
+    float expected_l = -0.08;
+    float expected_r = 0.18;
     assert_speeds(joystick_rotate, joystick_drive, expected_l, expected_r);
 }
 
