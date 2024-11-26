@@ -1,28 +1,28 @@
-#include "arcade_control/MotorSpeedController.hpp"
+#include "motor_controller/MotorSpeedController.hpp"
 
 using namespace std::placeholders;
 
 namespace composition {
 
 MotorSpeedController::MotorSpeedController(const rclcpp::NodeOptions &options) : Node("motor_speed_controller", options) {
-    arcade_sub = this->create_subscription<arcade_control::msg::ArcadeSpeed>(
+    arcade_sub = this->create_subscription<motor_controller::msg::ArcadeSpeed>(
         "/cmd_vel", 10,
         std::bind(&MotorSpeedController::arcade_callback, this, _1));
 
-    motor_speeds_pub = this->create_publisher<arcade_control::msg::MotorSpeeds>(
+    motor_speeds_pub = this->create_publisher<motor_controller::msg::MotorSpeeds>(
         "/cmd_vel_out", 10);
 }
 
-void MotorSpeedController::arcade_callback(const arcade_control::msg::ArcadeSpeed arcade_msg) {
+void MotorSpeedController::arcade_callback(const motor_controller::msg::ArcadeSpeed arcade_msg) {
     float arcade_left = arcade_msg.l;
     float arcade_right = arcade_msg.r;
 
-    arcade_control::msg::MotorSpeeds motor_speeds_msg = MotorSpeedController::compute_motor_speeds(arcade_left, arcade_right);
+    motor_controller::msg::MotorSpeeds motor_speeds_msg = MotorSpeedController::compute_motor_speeds(arcade_left, arcade_right);
     motor_speeds_pub->publish(std::move(motor_speeds_msg));
 }
 
-arcade_control::msg::MotorSpeeds MotorSpeedController::compute_motor_speeds(const float arcade_l, const float arcade_r) {
-    auto motor_speeds_msg = arcade_control::msg::MotorSpeeds();
+motor_controller::msg::MotorSpeeds MotorSpeedController::compute_motor_speeds(const float arcade_l, const float arcade_r) {
+    auto motor_speeds_msg = motor_controller::msg::MotorSpeeds();
     motor_speeds_msg.m1 = arcade_l * 0.8;
     motor_speeds_msg.m2 = arcade_l;
     motor_speeds_msg.m3 = arcade_l;

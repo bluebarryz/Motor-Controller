@@ -2,10 +2,11 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
-#include "arcade_control/ArcadeDriver.hpp"
-#include "arcade_control/MotorSpeedController.hpp"
+#include "motor_controller/ArcadeDriver.hpp"
+#include "motor_controller/MotorSpeedController.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "arcade_control/msg/speed.hpp"
+#include "motor_controller/msg/arcade_speed.hpp"
+#include "motor_controller/msg/motor_speeds.hpp"
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -19,12 +20,12 @@ protected:
         arcade_driver = std::make_shared<composition::ArcadeDriver>(rclcpp::NodeOptions());
         motor_speed_controller = std::make_shared<composition::MotorSpeedController>(rclcpp::NodeOptions());
 
-        last_arcade_speed_msg = std::make_shared<arcade_control::msg::ArcadeSpeed>();
+        last_arcade_speed_msg = std::make_shared<motor_controller::msg::ArcadeSpeed>();
         last_arcade_speed_msg->l = last_arcade_speed_msg->r = 0;
-        arcade_speed_sub = test_node->create_subscription<arcade_control::msg::ArcadeSpeed>(
+        arcade_speed_sub = test_node->create_subscription<motor_controller::msg::ArcadeSpeed>(
             "/cmd_vel",
             10,
-            [](const arcade_control::msg::ArcadeSpeed::SharedPtr msg) {
+            [](const motor_controller::msg::ArcadeSpeed::SharedPtr msg) {
                 RCLCPP_INFO(rclcpp::get_logger("TestArcadeDriver"), "Message: Left speed %.2f, Right speed %.2f", msg->l, msg->r);
                 last_arcade_speed_msg = msg;
             });
@@ -33,12 +34,12 @@ protected:
             "/joystick_input",
             10);
 
-        last_motor_speed_msg = std::make_shared<arcade_control::msg::MotorSpeeds>();
+        last_motor_speed_msg = std::make_shared<motor_controller::msg::MotorSpeeds>();
         last_motor_speed_msg->m1 = last_motor_speed_msg->m2 = last_motor_speed_msg->m3 = last_motor_speed_msg->m4 = last_motor_speed_msg->m5 = last_motor_speed_msg->m6 = 0;
-        motor_speed_sub = test_node->create_subscription<arcade_control::msg::MotorSpeeds>(
+        motor_speed_sub = test_node->create_subscription<motor_controller::msg::MotorSpeeds>(
             "/cmd_vel_out",
             10,
-            [](const arcade_control::msg::MotorSpeeds::SharedPtr msg) {
+            [](const motor_controller::msg::MotorSpeeds::SharedPtr msg) {
                 RCLCPP_INFO(rclcpp::get_logger("TestArcadeDriver"), "Message: m1=%.2f, m2=%.2f, m3=%.2f, m4=%.2f, m5=%.2f, m6=%.2f", 
                     msg->m1, msg->m2, msg->m3, msg->m4, msg->m5, msg->m6);
                 last_motor_speed_msg = msg;
@@ -67,10 +68,10 @@ protected:
     static std::shared_ptr<composition::ArcadeDriver> arcade_driver;
     static std::shared_ptr<composition::MotorSpeedController> motor_speed_controller;
     static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr joystick_pub;
-    static rclcpp::Subscription<arcade_control::msg::ArcadeSpeed>::SharedPtr arcade_speed_sub;
-    static arcade_control::msg::ArcadeSpeed::SharedPtr last_arcade_speed_msg;
-    static rclcpp::Subscription<arcade_control::msg::MotorSpeeds>::SharedPtr motor_speed_sub;
-    static arcade_control::msg::MotorSpeeds::SharedPtr last_motor_speed_msg;
+    static rclcpp::Subscription<motor_controller::msg::ArcadeSpeed>::SharedPtr arcade_speed_sub;
+    static motor_controller::msg::ArcadeSpeed::SharedPtr last_arcade_speed_msg;
+    static rclcpp::Subscription<motor_controller::msg::MotorSpeeds>::SharedPtr motor_speed_sub;
+    static motor_controller::msg::MotorSpeeds::SharedPtr last_motor_speed_msg;
     const float TOL = 0.0001;
 
     void publish_joystick_input(float joystick_rotate, float joystick_drive) {
@@ -142,10 +143,10 @@ std::shared_ptr<rclcpp::Node> TestArcadeDriver::test_node;
 std::shared_ptr<composition::ArcadeDriver> TestArcadeDriver::arcade_driver;
 std::shared_ptr<composition::MotorSpeedController> TestArcadeDriver::motor_speed_controller;
 rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr TestArcadeDriver::joystick_pub;
-rclcpp::Subscription<arcade_control::msg::ArcadeSpeed>::SharedPtr TestArcadeDriver::arcade_speed_sub;
-arcade_control::msg::ArcadeSpeed::SharedPtr TestArcadeDriver::last_arcade_speed_msg;
-rclcpp::Subscription<arcade_control::msg::MotorSpeeds>::SharedPtr TestArcadeDriver::motor_speed_sub;
-arcade_control::msg::MotorSpeeds::SharedPtr TestArcadeDriver::last_motor_speed_msg;
+rclcpp::Subscription<motor_controller::msg::ArcadeSpeed>::SharedPtr TestArcadeDriver::arcade_speed_sub;
+motor_controller::msg::ArcadeSpeed::SharedPtr TestArcadeDriver::last_arcade_speed_msg;
+rclcpp::Subscription<motor_controller::msg::MotorSpeeds>::SharedPtr TestArcadeDriver::motor_speed_sub;
+motor_controller::msg::MotorSpeeds::SharedPtr TestArcadeDriver::last_motor_speed_msg;
 
 // Joystick movement away from rest state is beneath the threshold
 TEST_F(TestArcadeDriver, Test0) {
