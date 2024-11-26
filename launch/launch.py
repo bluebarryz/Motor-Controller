@@ -6,17 +6,17 @@ from launch_ros.descriptions import ComposableNode
 def generate_launch_description():
     return LaunchDescription([
         ComposableNodeContainer(
-            name='arcade_control_container',
+            name='motor_controller_container',
             namespace='',
             package='rclcpp_components',
             executable='component_container',
             composable_node_descriptions=[
                 ComposableNode(
-                    package='arcade_control',
+                    package='motor_controller',
                     plugin='composition::ArcadeDriver',
                     name='arcade_driver'),
                 ComposableNode(
-                    package='arcade_control',
+                    package='motor_controller',
                     plugin='composition::MotorSpeedController',
                     name='motor_speed_controller')
             ]

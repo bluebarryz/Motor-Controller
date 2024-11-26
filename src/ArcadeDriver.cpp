@@ -1,4 +1,4 @@
-#include "arcade_control/ArcadeDriver.hpp"
+#include "motor_controller/ArcadeDriver.hpp"
 #include <cmath>
 
 using namespace std::placeholders;
@@ -10,7 +10,7 @@ ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_dr
 		"/joystick_input", 10,
 		std::bind(&ArcadeDriver::joystick_callback, this, _1));
 
-	arcade_pub = this->create_publisher<arcade_control::msg::ArcadeSpeed>(
+	arcade_pub = this->create_publisher<motor_controller::msg::ArcadeSpeed>(
 		"/cmd_vel", 10);
 
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
@@ -33,14 +33,14 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
 		return;
 	}
 
-	arcade_control::msg::ArcadeSpeed arcade_msg = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
+	motor_controller::msg::ArcadeSpeed arcade_msg = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
 	RCLCPP_INFO(get_logger(), "Publishing ArcadeSpeed - left: %.2f, right: %.2f",
 				arcade_msg.l, arcade_msg.r);
 	arcade_pub->publish(std::move(arcade_msg));
 
 }
 
-arcade_control::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
+motor_controller::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
 	const float MAX = fmax(fabs(joystick_drive), fabs(joystick_rotate));
 	const float DIFF = joystick_drive - joystick_rotate;
 	const float TOTAL = joystick_drive + joystick_rotate;
@@ -88,7 +88,7 @@ arcade_control::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const fl
 
 	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "joystick: x=%.2f, y=%.2f, speed: l=%.2f, r=%.2f", joystick_rotate, joystick_drive, left_motor, right_motor);
 
-	auto arcade_msg = arcade_control::msg::ArcadeSpeed();
+	auto arcade_msg = motor_controller::msg::ArcadeSpeed();
 	arcade_msg.l = left_motor;
 	arcade_msg.r = right_motor;
 	return arcade_msg;

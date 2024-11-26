@@ -1,4 +1,4 @@
-# `arcade_control` package
+# `motor_controller` package
   
 ## `ArcadeDriver` component
 
