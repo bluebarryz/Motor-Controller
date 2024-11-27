@@ -1,5 +1,4 @@
 #include "motor_controller/ArcadeDriver.hpp"
-#include <lifecycle_msgs/msg/state.hpp>
 #include <cmath>
 
 using namespace std::placeholders;
@@ -74,7 +73,7 @@ bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate
 void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
 	// Ignore Twist msg if component is inactive
 	if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-		RCLCPP_WARN(get_logger(), "Received message while not active, ignoring...");
+		RCLCPP_WARN(get_logger(), "Received twist message while not active, ignoring...");
 		return;
 	}
 

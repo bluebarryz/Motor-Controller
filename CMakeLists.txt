@@ -50,6 +50,8 @@ target_compile_definitions(motor_speed_controller
 ament_target_dependencies(motor_speed_controller
 	"rclcpp"
 	"rclcpp_components"
+  "rclcpp_lifecycle"
+  "lifecycle_msgs"
 )
 rosidl_target_interfaces(motor_speed_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 rclcpp_components_register_nodes(motor_speed_controller "composition::MotorSpeedController")

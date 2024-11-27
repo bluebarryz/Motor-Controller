@@ -2,6 +2,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include "motor_controller/msg/arcade_speed.hpp"
+#include <lifecycle_msgs/msg/state.hpp>
 
 
 namespace composition {
