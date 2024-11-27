@@ -14,6 +14,8 @@ find_package(rclcpp_components REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArcadeSpeed.msg"
@@ -31,6 +33,8 @@ target_compile_definitions(arcade_driver
 ament_target_dependencies(arcade_driver
 	"rclcpp"
 	"rclcpp_components"
+  "rclcpp_lifecycle"
+  "lifecycle_msgs"
   "geometry_msgs"
 )
 rosidl_target_interfaces(arcade_driver ${PROJECT_NAME} "rosidl_typesupport_cpp")

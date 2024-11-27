@@ -1,19 +1,69 @@
 #include "motor_controller/ArcadeDriver.hpp"
+#include <lifecycle_msgs/msg/state.hpp>
 #include <cmath>
 
 using namespace std::placeholders;
 
 namespace composition {
 
-ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options) : Node("arcade_driver", options) {
-	joystick_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-		"/joystick_input", 10,
-		std::bind(&ArcadeDriver::joystick_callback, this, _1));
+ArcadeDriver::ArcadeDriver(const rclcpp::NodeOptions &options)
+    : LifecycleNode("arcade_driver", options) {
+    RCLCPP_INFO(get_logger(), "Initializing ArcadeDriver lifecycle");
+}
 
-	arcade_pub = this->create_publisher<motor_controller::msg::ArcadeSpeed>(
-		"/cmd_vel", 10);
 
-	RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Completed setup of service and publisher");
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Configuring ArcadeDriver");
+    
+    joystick_sub = create_subscription<geometry_msgs::msg::Twist>(
+        "/joystick_input", 10,
+        std::bind(&ArcadeDriver::joystick_callback, this, _1));
+        
+    arcade_pub = create_publisher<motor_controller::msg::ArcadeSpeed>(
+        "/cmd_vel", 10);
+        
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+ArcadeDriver::on_activate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Activating ArcadeDriver");
+    
+    // Activate the lifecycle publisher
+    arcade_pub->on_activate();
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+ArcadeDriver::on_deactivate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Deactivating ArcadeDriver");
+    
+    // Deactivate the lifecycle publisher
+    arcade_pub->on_deactivate();
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+ArcadeDriver::on_cleanup(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Cleaning up ArcadeDriver");
+    
+    joystick_sub.reset();
+    arcade_pub.reset();
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+ArcadeDriver::on_shutdown(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Shutting down ArcadeDriver");
+    
+    joystick_sub.reset();
+    arcade_pub.reset();
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 // joystick input is "negligible" if it is very close to (0, 0), basically
@@ -22,6 +72,12 @@ bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate
 }
 
 void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+	// Ignore Twist msg if component is inactive
+	if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+		RCLCPP_WARN(get_logger(), "Received message while not active, ignoring...");
+		return;
+	}
+
 	RCLCPP_INFO(get_logger(), "Received Twist message - linear.x: %.2f, angular.z: %.2f",
 				msg->linear.x, msg->angular.z);
 
@@ -33,11 +89,12 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
 		return;
 	}
 
+	// lock this section START //
 	motor_controller::msg::ArcadeSpeed arcade_msg = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
 	RCLCPP_INFO(get_logger(), "Publishing ArcadeSpeed - left: %.2f, right: %.2f",
 				arcade_msg.l, arcade_msg.r);
 	arcade_pub->publish(std::move(arcade_msg));
-
+	// lock this section END //
 }
 
 motor_controller::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {
