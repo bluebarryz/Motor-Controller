@@ -18,7 +18,11 @@ def generate_launch_description():
                 ComposableNode(
                     package='motor_controller',
                     plugin='composition::MotorSpeedController',
-                    name='motor_speed_controller')
+                    name='motor_speed_controller'),
+                ComposableNode(
+                    package='motor_controller',
+                    plugin='composition::StateManager',
+                    name='state_manager')
             ]
         )
     ])

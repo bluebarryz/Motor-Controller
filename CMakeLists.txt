@@ -20,6 +20,10 @@ find_package(lifecycle_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArcadeSpeed.msg"
   "msg/MotorSpeeds.msg"
+  "msg/Transition.msg"
+  "srv/ChangeState.srv"
+  "srv/GetState.srv"
+  "msg/State.msg"
 	DEPENDENCIES builtin_interfaces geometry_msgs
 	)
 ament_export_dependencies(rosidl_default_runtime)
@@ -58,6 +62,22 @@ rclcpp_components_register_nodes(motor_speed_controller "composition::MotorSpeed
 #########
 
 
+#### state_manager component ###
+add_library(state_manager SHARED src/StateManager.cpp)
+target_compile_definitions(state_manager
+	PRIVATE "COMPOSITION_BUILDING_DLL"
+)
+ament_target_dependencies(state_manager
+	"rclcpp"
+	"rclcpp_components"
+  "rclcpp_lifecycle"
+  "lifecycle_msgs"
+)
+rosidl_target_interfaces(state_manager ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rclcpp_components_register_nodes(state_manager "composition::StateManager")
+#########
+
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
@@ -68,6 +88,7 @@ if(BUILD_TESTING)
   target_link_libraries(joystick_test
     arcade_driver
     motor_speed_controller
+    state_manager
   )
   
   # Link the test with the interfaces
@@ -84,6 +105,7 @@ endif()
 install(TARGETS
   arcade_driver
   motor_speed_controller
+  state_manager
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib 
   RUNTIME DESTINATION bin

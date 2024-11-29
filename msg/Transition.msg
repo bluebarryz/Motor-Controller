@@ -1,0 +1,16 @@
+# Primary transitions
+uint8 CONFIGURE=1               # From UNINIT to PRE_CAL
+uint8 CALIBRATION_SUCCESS=2     # From PRE_CAL to IDLE
+uint8 CALIBRATION_FAILURE=3     # From PRE_CAL to ERR_PROCESSING
+uint8 ACTIVATE_POS=4          # From IDLE to POS_CONTROL
+uint8 ACTIVATE_VEL=5           # From IDLE to VEL_CONTROL or POS_CONTROL TO VEL_CONTROL
+uint8 DEACTIVATE=6             # From POS_CONTROL/VEL_CONTROL to IDLE
+uint8 ERROR_RESOLVED=7         # From ERR_PROCESSING to IDLE
+
+# Transition results
+uint8 TRANSITION_SUCCESS=97
+uint8 TRANSITION_FAILURE=98
+uint8 TRANSITION_ERROR=99
+
+uint8 id
+string label
