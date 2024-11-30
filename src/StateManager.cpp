@@ -9,19 +9,25 @@ StateManager::StateManager(const rclcpp::NodeOptions &options)
     RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
 }
 
-
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 StateManager::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring StateManager");
-
-    change_state_server = create_service<motor_controller::srv::ChangeState>("/change_state",
-		std::bind(&StateManager::handle_change_state, this, _1, _2));
-
     
-    get_state_server = create_service<motor_controller::srv::GetState>("/get_state",
-		std::bind(&StateManager::handle_get_state, this, _1, _2));
-        
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+    change_state_server = create_service<motor_controller::srv::ChangeState>(
+        "~/change_mc_state",
+        std::bind(&StateManager::handle_change_state, this, _1, _2));
+    
+    get_state_server = create_service<motor_controller::srv::GetState>(
+        "~/get_mc_state",
+        std::bind(&StateManager::handle_get_state, this, _1, _2));
+
+    if (!change_state_server || !get_state_server) {
+        RCLCPP_ERROR(get_logger(), "Failed to create services");
+        return CallbackReturn::ERROR;
+    }
+
+    RCLCPP_INFO(get_logger(), "StateManager configured successfully");
+    return CallbackReturn::SUCCESS;
 }
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
