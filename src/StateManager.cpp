@@ -5,7 +5,7 @@ using namespace std::placeholders;
 namespace composition {
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
-    : LifecycleNode("state_manager", options) {
+    : LifecycleNode("state_manager", options), current_state{motor_controller::msg::State::UNINIT} {
     RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
 }
 
@@ -33,6 +33,7 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
     try {
+        std::lock_guard<std::mutex> lock(state_mutex_);
         bool transition_success = try_transition(request->transition.id);
         response->success = transition_success;
         if (!transition_success) {
@@ -47,6 +48,7 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
 
 void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
         std::shared_ptr<motor_controller::srv::GetState::Response> response) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
     (void)request;
     response->current_state.id = current_state;
     response->current_state.label = state_to_string(current_state);

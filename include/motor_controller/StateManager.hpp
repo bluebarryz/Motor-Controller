@@ -5,6 +5,7 @@
 #include "motor_controller/msg/transition.hpp"
 #include "motor_controller/srv/change_state.hpp"
 #include "motor_controller/srv/get_state.hpp"
+#include <mutex>
 
 namespace composition {
 
@@ -34,10 +35,13 @@ private:
     void handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
         std::shared_ptr<motor_controller::srv::GetState::Response> response);
 
+    // must only be called while holding the mutex
     bool try_transition(uint8_t transition_id);
+
     std::string state_to_string(uint8_t state);
     static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map;
     uint8_t current_state;
+    mutable std::mutex state_mutex_;
 };
 
 } // namespace composition
