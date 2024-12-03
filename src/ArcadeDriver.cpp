@@ -88,12 +88,10 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
 		return;
 	}
 
-	// lock this section START //
 	motor_controller::msg::ArcadeSpeed arcade_msg = ArcadeDriver::joystick_to_speed_mapper(joystick_rotate, joystick_drive);
 	RCLCPP_INFO(get_logger(), "Publishing ArcadeSpeed - left: %.2f, right: %.2f",
 				arcade_msg.l, arcade_msg.r);
 	arcade_pub->publish(std::move(arcade_msg));
-	// lock this section END //
 }
 
 motor_controller::msg::ArcadeSpeed ArcadeDriver::joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive) {

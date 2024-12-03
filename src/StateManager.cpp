@@ -128,36 +128,63 @@ StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
 }
 
 const std::map<std::pair<uint8_t, uint8_t>, uint8_t> StateManager::transition_map = {
-    // From UNINIT
-    {{motor_controller::msg::State::UNINIT, motor_controller::msg::Transition::CONFIGURE},
-     motor_controller::msg::State::TRANSITION_STATE_PRE_CAL},
-    
-    // From PRE_CAL
-    {{motor_controller::msg::State::TRANSITION_STATE_PRE_CAL, motor_controller::msg::Transition::CALIBRATION_SUCCESS},
-     motor_controller::msg::State::IDLE},
-    {{motor_controller::msg::State::TRANSITION_STATE_PRE_CAL, motor_controller::msg::Transition::CALIBRATION_FAILURE},
-     motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
-    
-    // From IDLE
-    {{motor_controller::msg::State::IDLE, motor_controller::msg::Transition::ACTIVATE_POS},
-     motor_controller::msg::State::POS_CONTROL},
-    {{motor_controller::msg::State::IDLE, motor_controller::msg::Transition::ACTIVATE_VEL},
-     motor_controller::msg::State::VEL_CONTROL},
-    
-    // From POS_CONTROL
-    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::DEACTIVATE},
-     motor_controller::msg::State::IDLE},
-    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::ACTIVATE_VEL},
-     motor_controller::msg::State::VEL_CONTROL},
-    
-    // From VEL_CONTROL
-    {{motor_controller::msg::State::VEL_CONTROL, motor_controller::msg::Transition::DEACTIVATE},
-     motor_controller::msg::State::IDLE},
-    
-    // Error handling from any state
-    {{motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING, motor_controller::msg::Transition::ERROR_RESOLVED},
-     motor_controller::msg::State::IDLE},
-};
+    {{motor_controller::msg::State::UNINIT, motor_controller::msg::Transition::TRANSITION_CALIBRATE},
+        motor_controller::msg::State::TRANSITION_STATE_PRE_CAL},
+    {{motor_controller::msg::State::TRANSITION_STATE_PRE_CAL, motor_controller::msg::Transition::TRANSITION_ON_CALIBRATE_SUCCESS},
+        motor_controller::msg::State::IDLE},
+    {{motor_controller::msg::State::TRANSITION_STATE_PRE_CAL, motor_controller::msg::Transition::TRANSITION_ON_CALIBRATE_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+
+    {{motor_controller::msg::State::IDLE, motor_controller::msg::Transition::TRANSITION_ACTIVATE_POS_CONTROL},
+        motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_POS_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_SUCCESS},
+        motor_controller::msg::State::POS_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::TRANSITION_POS_CONTROL_ERR},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+
+    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
+        motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_SUCCESS},
+        motor_controller::msg::State::IDLE},
+    {{motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+
+    {{motor_controller::msg::State::IDLE, motor_controller::msg::Transition::TRANSITION_ACTIVATE_VEL_CONTROL},
+        motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL},
+    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::TRANSITION_ACTIVATE_VEL_CONTROL},
+        motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_SUCCESS},
+        motor_controller::msg::State::VEL_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+    {{motor_controller::msg::State::VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_VEL_CONTROL_ERR},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+        
+    {{motor_controller::msg::State::VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_DEACTIVATE_VEL_CONTROL},
+        motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
+    {{motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_SUCCESS},
+        motor_controller::msg::State::IDLE},
+    {{motor_controller::msg::State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+
+    {{motor_controller::msg::State::IDLE, motor_controller::msg::Transition::TRANSITION_SHUTDOWN},
+        motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN},
+    {{motor_controller::msg::State::POS_CONTROL, motor_controller::msg::Transition::TRANSITION_SHUTDOWN},
+        motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN},
+    {{motor_controller::msg::State::VEL_CONTROL, motor_controller::msg::Transition::TRANSITION_SHUTDOWN},
+        motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN},
+    {{motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN, motor_controller::msg::Transition::TRANSITION_ON_SHUTDOWN_SUCCESS},
+        motor_controller::msg::State::FINALIZED},
+    {{motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN, motor_controller::msg::Transition::TRANSITION_ON_SHUTDOWN_FAILURE},
+        motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING},
+
+    {{motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING, motor_controller::msg::Transition::TRANSITION_ERR_HANDLER_SUCCESS},
+        motor_controller::msg::State::UNINIT},
+    {{motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING, motor_controller::msg::Transition::TRANSITION_ERR_HANDLER_FAILURE},
+        motor_controller::msg::State::FINALIZED}
+}
 
 } // namespace composition
 
