@@ -184,7 +184,113 @@ const std::map<std::pair<uint8_t, uint8_t>, uint8_t> StateManager::transition_ma
         motor_controller::msg::State::UNINIT},
     {{motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING, motor_controller::msg::Transition::TRANSITION_ERR_HANDLER_FAILURE},
         motor_controller::msg::State::FINALIZED}
-}
+};
+
+const std::map<
+        std::uint8_t,
+        std::function<StateManager::TransitionCallbackReturn(const uint8_t transition_id)>> StateManager::callback_map_ = {
+    
+    {motor_controller::msg::Transition::TRANSITION_CALIBRATE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_CALIBRATE_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_CALIBRATE_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_ACTIVATE_POS_CONTROL, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_POS_CONTROL_ERR, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_DEACTIVATE_POS_CONTROL, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_ACTIVATE_VEL_CONTROL, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_VEL_CONTROL_ERR, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_SHUTDOWN, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_SHUTDOWN_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ON_SHUTDOWN_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+
+
+    {motor_controller::msg::Transition::TRANSITION_ERR_HANDLER_SUCCESS, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }},
+    {motor_controller::msg::Transition::TRANSITION_ERR_HANDLER_FAILURE, [](const uint8_t transition_id) {
+        (void)transition_id;
+        return StateManager::TransitionCallbackReturn::SUCCESS;
+    }}
+};
 
 } // namespace composition
 
