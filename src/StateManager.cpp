@@ -32,8 +32,11 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
+    RCLCPP_INFO(get_logger(), "calling handle_change_state");
+
     try {
         std::lock_guard<std::mutex> lock(state_mutex_);
+        RCLCPP_INFO(get_logger(), "preparing to call try_transition");
         bool transition_success = try_transition(request->transition.id);
         response->success = transition_success;
         if (!transition_success) {
@@ -55,21 +58,58 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
 }
 
 bool StateManager::try_transition(uint8_t transition_id) {
-    auto it = transition_map.find({current_state, transition_id});
-    if (it == transition_map.end()) {
+    RCLCPP_INFO(get_logger(), "Calling try_transition");
+
+    // check if transition is legal
+    auto tr_id = transition_map.find({current_state, transition_id});
+    if (tr_id == transition_map.end()) {
         // did not find transition in the transition table
         RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
                     transition_id, current_state);
         return false;
     }
 
-    uint8_t new_state = it->second;
+    // call associated transition callback
+    auto cb_success = StateManager::execute_callback(transition_id);
+    if (cb_success == StateManager::TransitionCallbackReturn::ERROR) {
+        RCLCPP_ERROR(
+            get_logger(),
+            "Transition with id %d failed.", transition_id);
+    }
+
+    uint8_t new_state = tr_id->second;
     RCLCPP_INFO(get_logger(), "Transitioning from %s to %s",
                 state_to_string(current_state).c_str(),
                 state_to_string(new_state).c_str());
     
     current_state = new_state;
     return true;
+}
+
+StateManager::TransitionCallbackReturn StateManager::execute_callback(uint8_t transition_id) {
+    auto tr_cb = callback_map_.find(transition_id);
+    auto cb_success = StateManager::TransitionCallbackReturn::SUCCESS;
+    if (tr_cb == callback_map_.end()) {
+        // did not find callback in the callback_map_
+        RCLCPP_WARN(get_logger(), "Could not find callback for transition %d",
+                    transition_id);
+        cb_success = StateManager::TransitionCallbackReturn::ERROR;
+    } else {
+        auto callback = tr_cb->second;
+        try {
+            cb_success = callback(transition_id);
+        } catch (const std::exception & e) {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Caught exception in callback for transition %d", tr_cb->first);
+            RCLCPP_ERROR(
+                get_logger(),
+                "Original error: %s", e.what());
+            cb_success = StateManager::TransitionCallbackReturn::ERROR;
+        }
+    }
+
+    return cb_success;
 }
 
 // TODO: do this for Transitions too

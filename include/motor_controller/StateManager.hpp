@@ -42,6 +42,7 @@ private:
 
     // must only be called while holding the mutex
     bool try_transition(uint8_t transition_id);
+    TransitionCallbackReturn execute_callback(uint8_t transition_id);
 
     std::string state_to_string(uint8_t state);
     static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map;
