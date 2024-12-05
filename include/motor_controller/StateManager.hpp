@@ -42,15 +42,19 @@ private:
 
     // must only be called while holding the mutex
     bool try_transition(uint8_t transition_id);
-    TransitionCallbackReturn execute_callback(uint8_t transition_id);
+    TransitionCallbackReturn execute_callback(
+        std::function<TransitionCallbackReturn(const uint8_t transition_id)> callback, uint8_t transition_id);
 
     std::string state_to_string(uint8_t state);
-    static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map;
+    static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
+    static const std::map<std::uint8_t, std::uint8_t> transition_fall_back_state_map_;
+    static const std::map<std::uint8_t, std::uint8_t> transition_error_transition_map_;
     static const std::map<
         std::uint8_t,
-        std::function<TransitionCallbackReturn(const uint8_t transition_id)>> callback_map_;
-    uint8_t current_state;
-    mutable std::mutex state_mutex_;
+        std::pair<uint8_t, std::function<TransitionCallbackReturn(const uint8_t transition_id)>>> callback_map_;
+
+    uint8_t current_state_;
+    mutable std::recursive_mutex state_mutex_;
 };
 
 } // namespace composition
