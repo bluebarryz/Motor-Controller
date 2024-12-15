@@ -6,6 +6,8 @@ namespace composition {
 StateManager::StateManager(const rclcpp::NodeOptions &options)
     : LifecycleNode("state_manager", options), current_state_{motor_controller::msg::State::UNINIT} {
     RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
+
+    init_callback_map();
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -221,81 +223,110 @@ const std::map<std::pair<uint8_t, uint8_t>, uint8_t> StateManager::transition_ma
         State::TRANSITION_STATE_ERR_PROCESSING}
 };
 
-const std::map<
-        std::uint8_t,
-        std::pair<uint8_t, std::function<StateManager::TransitionCallbackReturn(const uint8_t transition_id)>>> StateManager::callback_map_ = {
+StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
+    (void)transition_id;
+    auto lifecycle_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     
-    // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
-    {Transition::TRANSITION_CALIBRATE, {State::IDLE, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_PRE_CAL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_CALIBRATE_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    
+    auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
+    request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
 
-    // From IDLE to TRANSITION_STATE_ACTIVATING_POS_CONTROL to POS_CONTROL
-    {Transition::TRANSITION_ACTIVATE_POS_CONTROL, {State::POS_CONTROL, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_ACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
+    while (!lifecycle_client_->wait_for_service(std::chrono::seconds(1))) {
+        if (!rclcpp::ok()) {
+            RCLCPP_ERROR(get_logger(), "Interrupted while waiting for lifecycle service. Exiting.");
+            return StateManager::TransitionCallbackReturn::ERROR;
+        }
+        RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
+    }
 
+    auto future = lifecycle_client_->async_send_request(request);
 
-    // From POS_CONTROL to TRANSITION_STATE_DEACTIVATING_POS_CONTROL to IDLE
-    {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_DEACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
+    if (rclcpp::spin_until_future_complete(get_node_base_interface(), future) ==
+        rclcpp::FutureReturnCode::SUCCESS) {
+        auto result = future.get();
+        if (result->success) {
+            RCLCPP_INFO(get_logger(), "Successfully activated ArcadeDriver");
+        } else {
+            RCLCPP_ERROR(get_logger(), "Failed to activate ArcadeDriver");
+            return StateManager::TransitionCallbackReturn::ERROR;
+        }
+    }
 
+    return TransitionCallbackReturn::SUCCESS;
+}
 
-    // From IDLE to TRANSITION_STATE_ACTIVATING_VEL_CONTROL to VEL_CONTROL
-    {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, {State::VEL_CONTROL, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_ACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
+void StateManager::init_callback_map() {
+    callback_map_ = {
+        // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
+        {Transition::TRANSITION_CALIBRATE, {State::IDLE, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        // From TRANSITION_STATE_PRE_CAL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_CALIBRATE_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        
 
-
-    // From VEL_CONTROL to TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to IDLE
-    {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
+        // From IDLE to TRANSITION_STATE_ACTIVATING_POS_CONTROL to POS_CONTROL
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, {State::POS_CONTROL, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        // From TRANSITION_STATE_ACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
 
 
-    // From IDLE/POS_CONTROL/VEL_CONTROL to TRANSITION_STATE_SHUTTING_DOWN to FINALIZED
-    {Transition::TRANSITION_SHUTDOWN, {State::FINALIZED, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-    // From TRANSITION_STATE_SHUTTING_DOWN to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-    {Transition::TRANSITION_ON_SHUTDOWN_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-        (void)transition_id;
-        return StateManager::TransitionCallbackReturn::SUCCESS;
-    }}},
-};
+        // From POS_CONTROL to TRANSITION_STATE_DEACTIVATING_POS_CONTROL to IDLE
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        // From TRANSITION_STATE_DEACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+
+
+        // From IDLE to TRANSITION_STATE_ACTIVATING_VEL_CONTROL to VEL_CONTROL
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, {State::VEL_CONTROL, 
+            std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)}},
+
+        // From TRANSITION_STATE_ACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+
+
+        // From VEL_CONTROL to TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to IDLE
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        // From TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+
+
+        // From IDLE/POS_CONTROL/VEL_CONTROL to TRANSITION_STATE_SHUTTING_DOWN to FINALIZED
+        {Transition::TRANSITION_SHUTDOWN, {State::FINALIZED, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+        // From TRANSITION_STATE_SHUTTING_DOWN to TRANSITION_STATE_ERR_PROCESSING to UNINIT
+        {Transition::TRANSITION_ON_SHUTDOWN_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+            (void)transition_id;
+            return StateManager::TransitionCallbackReturn::SUCCESS;
+        }}},
+    };
+}
 
 
 const std::map<std::uint8_t, std::uint8_t> StateManager::transition_fall_back_state_map_ = {

@@ -6,6 +6,9 @@
 #include "motor_controller/srv/change_state.hpp"
 #include "motor_controller/srv/get_state.hpp"
 #include <mutex>
+#include <lifecycle_msgs/srv/change_state.hpp>
+#include <lifecycle_msgs/srv/get_state.hpp>
+
 
 namespace composition {
 
@@ -49,12 +52,15 @@ private:
     static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
     static const std::map<std::uint8_t, std::uint8_t> transition_fall_back_state_map_;
     static const std::map<std::uint8_t, std::uint8_t> transition_error_transition_map_;
-    static const std::map<
+    std::map<
         std::uint8_t,
         std::pair<uint8_t, std::function<TransitionCallbackReturn(const uint8_t transition_id)>>> callback_map_;
+    void init_callback_map();
 
     uint8_t current_state_;
     mutable std::recursive_mutex state_mutex_;
+
+    TransitionCallbackReturn activate_arcade_driver(const uint8_t transition_id);
 };
 
 } // namespace composition
