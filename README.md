@@ -12,3 +12,6 @@ Subscribes to `cmd_vel` topic and computes 6 motor speeds (3 left, 3 right) usin
 
 The 6 motor speeds are published to the `cmd_vel_out` topic.
 
+## `StateManager` component
+
+![State machine diagram](images/State_machine.PNG)
