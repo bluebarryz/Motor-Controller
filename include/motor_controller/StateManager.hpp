@@ -49,9 +49,22 @@ private:
         std::function<TransitionCallbackReturn(const uint8_t transition_id)> callback, uint8_t transition_id);
 
     std::string state_to_string(uint8_t state);
+
+    // transition_map_ maps a pair containing {a state and a transition from that state} to the corresponding
+    //  transition state.
     static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
+
+    // transition_fall_back_state_map_ maps a transition state to the state to fallback to if the
+    //  transition callback returns FAILURE.
     static const std::map<std::uint8_t, std::uint8_t> transition_fall_back_state_map_;
+    
+    // transition_error_transition_map_ maps a transition state to the transition of the corresponding
+    //  error handler transition if the transition callback return ERROR
     static const std::map<std::uint8_t, std::uint8_t> transition_error_transition_map_;
+    
+    // callback_map_ maps a transition id to a pair containing:
+    //      1. the destination state id
+    //      2. the callback to execute for this transition
     std::map<
         std::uint8_t,
         std::pair<uint8_t, std::function<TransitionCallbackReturn(const uint8_t transition_id)>>> callback_map_;

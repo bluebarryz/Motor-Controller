@@ -36,7 +36,7 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
     RCLCPP_INFO(get_logger(), "calling handle_change_state");
 
     try {
-        std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+        // std::lock_guard<std::recursive_mutex> lock(state_mutex_);
         RCLCPP_INFO(get_logger(), "preparing to call try_transition");
         bool transition_success = try_transition(request->transition.id);
         response->success = transition_success;
@@ -59,7 +59,7 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
 }
 
 bool StateManager::try_transition(uint8_t transition_id) {
-    RCLCPP_INFO(get_logger(), "Calling try_transition");
+    RCLCPP_INFO(get_logger(), "Calling try_transition for transition_id: %d", transition_id);
 
     // check if transition is legal
     auto tr_id = transition_map_.find({current_state_, transition_id});
@@ -86,6 +86,7 @@ bool StateManager::try_transition(uint8_t transition_id) {
     auto callback = tr_cb->second.second;
     auto cb_success = StateManager::execute_callback(callback, transition_id);
     
+    // if callback suceeds, set current_state to be the destination primary state
     if (cb_success == StateManager::TransitionCallbackReturn::SUCCESS) {
         std::lock_guard<std::recursive_mutex> lock(state_mutex_);
         current_state_ = tr_cb->second.first;
@@ -96,6 +97,7 @@ bool StateManager::try_transition(uint8_t transition_id) {
                 get_logger(),
                 "No error transition associated with state %d", current_state_);
         }
+        // Make a rescursive call with the error handler transition.
         StateManager::try_transition(tr_err->second);
     } else if (cb_success == StateManager::TransitionCallbackReturn::FAILURE) {
         auto tr_fail = transition_fall_back_state_map_.find(current_state_);
@@ -253,6 +255,7 @@ StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(cons
 
     return TransitionCallbackReturn::SUCCESS;
 }
+
 
 void StateManager::init_callback_map() {
     callback_map_ = {

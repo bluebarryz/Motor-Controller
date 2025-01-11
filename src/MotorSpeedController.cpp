@@ -29,6 +29,7 @@ MotorSpeedController::on_activate(const rclcpp_lifecycle::State &) {
     
     // Activate the lifecycle publisher
     motor_speeds_pub->on_activate();
+    RCLCPP_INFO(get_logger(), "MotorSpeedController activated");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -39,6 +40,7 @@ MotorSpeedController::on_deactivate(const rclcpp_lifecycle::State &) {
     
     // Deactivate the lifecycle publisher
     motor_speeds_pub->on_deactivate();
+    RCLCPP_INFO(get_logger(), "MotorSpeedController deactivated");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -49,6 +51,7 @@ MotorSpeedController::on_cleanup(const rclcpp_lifecycle::State &) {
     
     arcade_sub.reset();
     motor_speeds_pub.reset();
+    RCLCPP_INFO(get_logger(), "MotorSpeedController cleanup done");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -59,7 +62,8 @@ MotorSpeedController::on_shutdown(const rclcpp_lifecycle::State &) {
     
     arcade_sub.reset();
     motor_speeds_pub.reset();
-    
+    RCLCPP_INFO(get_logger(), "MotorSpeedController shutdown done");
+
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
