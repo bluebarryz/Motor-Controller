@@ -242,17 +242,6 @@ StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(cons
 
     auto future = lifecycle_client_->async_send_request(request);
 
-    if (rclcpp::spin_until_future_complete(get_node_base_interface(), future) ==
-        rclcpp::FutureReturnCode::SUCCESS) {
-        auto result = future.get();
-        if (result->success) {
-            RCLCPP_INFO(get_logger(), "Successfully activated ArcadeDriver");
-        } else {
-            RCLCPP_ERROR(get_logger(), "Failed to activate ArcadeDriver");
-            return StateManager::TransitionCallbackReturn::ERROR;
-        }
-    }
-
     return TransitionCallbackReturn::SUCCESS;
 }
 
