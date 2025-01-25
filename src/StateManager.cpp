@@ -78,28 +78,15 @@ std::unordered_map<std::pair<State, Transition>, State> StateManager::init_trans
     return {
         {{State::UNINIT, Transition::TRANSITION_CALIBRATE},
             State::TRANSITION_STATE_PRE_CAL},
-        {{State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_ON_CALIBRATE_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING},
+        {{State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_CALIBRATE_COMPLETE},
+            State::IDLE},
+
 
         {{State::IDLE, Transition::TRANSITION_ACTIVATE_POS_CONTROL},
             State::TRANSITION_STATE_ACTIVATING_POS_CONTROL},
-        {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING},
-
-        {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
-            State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
-        {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING},
-
         {{State::IDLE, Transition::TRANSITION_ACTIVATE_VEL_CONTROL},
             State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL},
-        {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING},
 
-        {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL},
-            State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
-        {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING},
 
         {{State::IDLE, Transition::TRANSITION_SHUTDOWN},
             State::TRANSITION_STATE_SHUTTING_DOWN},
@@ -107,74 +94,31 @@ std::unordered_map<std::pair<State, Transition>, State> StateManager::init_trans
             State::TRANSITION_STATE_SHUTTING_DOWN},
         {{State::VEL_CONTROL, Transition::TRANSITION_SHUTDOWN},
             State::TRANSITION_STATE_SHUTTING_DOWN},
-        {{State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_ON_SHUTDOWN_ERROR},
-            State::TRANSITION_STATE_ERR_PROCESSING}
+
+
+        {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ACTIVATE_POS_CONTROL_COMPLETE},
+            State::POS_CONTROL},
+        {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE},
+            State::VEL_CONTROL},
+        {{State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_SHUTDOWN_COMPLETE},
+            State::FINALIZED},
+   
+
+        {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
+            State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
+        {{State::VEL_CONTROL, Transition::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
+            State::TRANSITION_DEACTIVATE_VEL_CONTROL},
+
+        
+        {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL_COMPLETE},
+            State::IDLE},
+        {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_COMPLETE},
+            State::IDLE},
     }
 }
 
-void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
-        std::shared_ptr<motor_controller::srv::GetState::Response> response) {
-    std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-    (void)request;
-    response->current_state.id = current_state_;
-    response->current_state.label = state_to_string(current_state_);
-}
-
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_activate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Activating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_deactivate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Deactivating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_cleanup(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Cleaning up StateManager");
-    
-    change_state_server.reset();
-    get_state_server.reset();
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Shutting down StateManager");
-
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
-    (void)transition_id;
-    auto lifecycle_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
-    
-    auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-    request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
-
-    while (!lifecycle_client_->wait_for_service(std::chrono::seconds(1))) {
-        if (!rclcpp::ok()) {
-            RCLCPP_ERROR(get_logger(), "Interrupted while waiting for lifecycle service. Exiting.");
-            return StateManager::TransitionCallbackReturn::ERROR;
-        }
-        RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
-    }
-
-    auto future = lifecycle_client_->async_send_request(request);
-
-    return TransitionCallbackReturn::SUCCESS;
-}
-
-
-void StateManager::init_callback_map() {
-    callback_map_ = {
+std::unordered_map<Transition, std::function<TransitionCallbackReturn(const Transition&)>> StateManager::init_callback_map() {
+    return {
         // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
         {Transition::TRANSITION_CALIBRATE, {State::IDLE, [](const uint8_t transition_id) {
             (void)transition_id;
@@ -243,8 +187,68 @@ void StateManager::init_callback_map() {
         {Transition::TRANSITION_ON_SHUTDOWN_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-    };
+        }}}
+    }
+}
+
+void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
+        std::shared_ptr<motor_controller::srv::GetState::Response> response) {
+    std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+    (void)request;
+    response->current_state.id = current_state_;
+    // response->current_state.label = state_to_string(current_state_);
+}
+
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+StateManager::on_activate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Activating StateManager");
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+StateManager::on_deactivate(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Deactivating StateManager");
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+StateManager::on_cleanup(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Cleaning up StateManager");
+    
+    change_state_server.reset();
+    get_state_server.reset();
+    
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
+    RCLCPP_INFO(get_logger(), "Shutting down StateManager");
+
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
+}
+
+StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
+    (void)transition_id;
+    auto lifecycle_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+    
+    auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
+    request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+
+    while (!lifecycle_client_->wait_for_service(std::chrono::seconds(1))) {
+        if (!rclcpp::ok()) {
+            RCLCPP_ERROR(get_logger(), "Interrupted while waiting for lifecycle service. Exiting.");
+            return StateManager::TransitionCallbackReturn::ERROR;
+        }
+        RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
+    }
+
+    auto future = lifecycle_client_->async_send_request(request);
+
+    return TransitionCallbackReturn::SUCCESS;
 }
 
 
