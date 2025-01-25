@@ -12,6 +12,10 @@
 
 namespace composition {
 
+using Transition = motor_controller::msg::Transition;
+using State = motor_controller::msg::State;
+
+
 class StateManager : public rclcpp_lifecycle::LifecycleNode {
 public:
     explicit StateManager(const rclcpp::NodeOptions &options);
@@ -38,37 +42,34 @@ private:
 
     rclcpp::Service<motor_controller::srv::ChangeState>::SharedPtr change_state_server;
     rclcpp::Service<motor_controller::srv::GetState>::SharedPtr get_state_server;
+    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr arcade_driver_lifecycle_client;
     void handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
         std::shared_ptr<motor_controller::srv::ChangeState::Response> response);
     void handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
         std::shared_ptr<motor_controller::srv::GetState::Response> response);
 
-    // must only be called while holding the mutex
-    bool try_transition(uint8_t transition_id);
-    TransitionCallbackReturn execute_callback(
-        std::function<TransitionCallbackReturn(const uint8_t transition_id)> callback, uint8_t transition_id);
+    bool is_legal_transition(const Transition& transition_id);
 
-    std::string state_to_string(uint8_t state);
+    // transition_map maps a pair containing {a state and a transition from that state} to the next state.
+    static const std::unordered_map<std::pair<State, Transition>, State>& get_transition_map() {
+        static const auto transition_map = init_transition_map();
+        return transition_map;
+    }
+    static std::unordered_map<std::pair<State, Transition>, State> init_transition_map();
 
-    // transition_map_ maps a pair containing {a state and a transition from that state} to the corresponding
-    //  transition state.
-    static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
+    // callback_map maps a transition id to a callback to execute for this transition
+    static const std::unordered_map<Transition, std::function<TransitionCallbackReturn(const Transition&)>>& get_callback_map() {
+        static const auto callback_map = init_callback_map();
+        return callback_map;
+    }
+    static std::unordered_map<Transition, std::function<TransitionCallbackReturn(const Transition&)>> init_callback_map();
 
-    // transition_fall_back_state_map_ maps a transition state to the state to fallback to if the
-    //  transition callback returns FAILURE.
-    static const std::map<std::uint8_t, std::uint8_t> transition_fall_back_state_map_;
-    
-    // transition_error_transition_map_ maps a transition state to the transition of the corresponding
-    //  error handler transition if the transition callback return ERROR
-    static const std::map<std::uint8_t, std::uint8_t> transition_error_transition_map_;
-    
-    // callback_map_ maps a transition id to a pair containing:
-    //      1. the destination state id
-    //      2. the callback to execute for this transition
-    std::map<
-        std::uint8_t,
-        std::pair<uint8_t, std::function<TransitionCallbackReturn(const uint8_t transition_id)>>> callback_map_;
-    void init_callback_map();
+    // predicate_map maps a transition id to a predicate function
+    static const std::unordered_map<Transition, std::function<bool(const Transition&)>>& get_predicate_map() {
+        static const auto predicate_map = init_predicate_map();
+        return predicate_map;
+    }
+    static std::unordered_map<Transition, std::function<bool(const Transition&)>> init_predicate_map();
 
     uint8_t current_state_;
     mutable std::recursive_mutex state_mutex_;
