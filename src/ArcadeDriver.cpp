@@ -31,6 +31,7 @@ ArcadeDriver::on_activate(const rclcpp_lifecycle::State &) {
     
     // Activate the lifecycle publisher
     arcade_pub->on_activate();
+    RCLCPP_INFO(get_logger(), "done Activating ArcadeDriver");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }

@@ -22,6 +22,8 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
         "~/get_mc_state",
         std::bind(&StateManager::handle_get_state, this, std::placeholders::_1, std::placeholders::_2));
 
+    arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+
     if (!change_state_server || !get_state_server) {
         RCLCPP_ERROR(get_logger(), "Failed to create services");
         return CallbackReturn::ERROR;
@@ -227,12 +229,12 @@ const std::map<std::pair<uint8_t, uint8_t>, uint8_t> StateManager::transition_ma
 
 StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
     (void)transition_id;
-    auto lifecycle_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+    RCLCPP_INFO(get_logger(), "Starting activate_arcade_driver");
     
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
 
-    while (!lifecycle_client_->wait_for_service(std::chrono::seconds(1))) {
+    while (!arcade_driver_lifecycle_client->wait_for_service(std::chrono::seconds(1))) {
         if (!rclcpp::ok()) {
             RCLCPP_ERROR(get_logger(), "Interrupted while waiting for lifecycle service. Exiting.");
             return StateManager::TransitionCallbackReturn::ERROR;
@@ -240,8 +242,22 @@ StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(cons
         RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
     }
 
-    auto future = lifecycle_client_->async_send_request(request);
+    RCLCPP_INFO(get_logger(), "Service available, sending request");
+    
 
+    arcade_driver_lifecycle_client->async_send_request(
+        request,
+        [this](rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture future) {
+            RCLCPP_INFO(get_logger(), "Got response callback");
+            auto result = future.get();
+            if (result->success) {
+                RCLCPP_INFO(get_logger(), "ArcadeDriver activation confirmed");
+            } else {
+                RCLCPP_ERROR(get_logger(), "ArcadeDriver activation failed");
+            }
+        });
+
+    RCLCPP_INFO(get_logger(), "Request sent, returning");
     return TransitionCallbackReturn::SUCCESS;
 }
 

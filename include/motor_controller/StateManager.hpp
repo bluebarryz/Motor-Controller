@@ -38,6 +38,7 @@ private:
 
     rclcpp::Service<motor_controller::srv::ChangeState>::SharedPtr change_state_server;
     rclcpp::Service<motor_controller::srv::GetState>::SharedPtr get_state_server;
+    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr arcade_driver_lifecycle_client;
     void handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
         std::shared_ptr<motor_controller::srv::ChangeState::Response> response);
     void handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,

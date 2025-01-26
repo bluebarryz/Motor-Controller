@@ -26,3 +26,4 @@ ros2 lifecycle set /arcade_driver configure
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 21, label: 'active_vel_control'}}"
 ros2 lifecycle get /arcade_driver
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 28, label: 'deactive_vel_control'}}"
