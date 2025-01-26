@@ -8,10 +8,9 @@ using Transition = motor_controller::msg::Transition;
 using State = motor_controller::msg::State;
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
-    : LifecycleNode("state_manager", options), current_state_{motor_controller::msg::State::UNINIT} {
+    : LifecycleNode("state_manager", options) {
     RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
-
-    init_callback_map();
+    current_state_ = State::UNINIT;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -42,39 +41,46 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
     RCLCPP_INFO(get_logger(), "calling handle_change_state");
 
     const auto& transition_map = get_transition_map();
-    // check if transition is legal
-    auto tr = transition_map.find({current_state_, transition_id});
+    Transition t_id = request->transition.id;
+    auto tr = transition_map.find({current_state_, t_id});
     if (tr == transition_map.end()) {
         // did not find transition in the transition table
         RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
-                    transition_id, current_state_);
+                    t_id, current_state_);
         response->success = false;
     }
 
     Transition transition = tr->first;
     State next_state = tr->second;
-    if (tr_id.type == Transition::TYPE_A) {
+
+    const auto& transition = request->transition;  // Use the transition from the request
+    const auto& next_state = tr->second;
+    const auto& transition_type = get_transition_type_map().at(transition);
+
+    if (transition_type == StateManager::TransitionType::TYPE_A) {
         {
             std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-            current_state_ = tr_id->second;
+            current_state_ = next_state;
         }
 
-        auto callback = get_callback_map().find(transition);
-        callback();
-    } else if (tr_id.type == Transition::TYPE_B) {
-        auto predicate = get_predicate_map().find(transition);
-        if (predicate(transition)) {
-            {
+        auto callback_it = get_callback_map().find(transition);
+        if (callback_it != get_callback_map().end()) {
+            callback_it->second(transition);
+        }
+    } else if (transition_type == StateManager::TransitionType::TYPE_B) {
+        auto predicate_it = get_predicate_map().find(transition);
+        if (predicate_it != get_predicate_map().end() && predicate_it->second(transition)) {
             std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-            current_state_ = tr_id->second;
+            current_state_ = next_state;
         }
-        }
-    } else if (tr_id.type == Transition::TYPE_C) {
+    } else if (transition_type == StateManager::TransitionType::TYPE_C) {
         //TODO
-    } 
+    }
+    
+    response->success = true;
 }
 
-std::unordered_map<std::pair<State, Transition>, State> StateManager::init_transition_map() {
+std::map<std::pair<State, Transition>, State> StateManager::init_transition_map() {
     return {
         {{State::UNINIT, Transition::TRANSITION_CALIBRATE},
             State::TRANSITION_STATE_PRE_CAL},
@@ -106,89 +112,135 @@ std::unordered_map<std::pair<State, Transition>, State> StateManager::init_trans
 
         {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
             State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
-        {{State::VEL_CONTROL, Transition::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
-            State::TRANSITION_DEACTIVATE_VEL_CONTROL},
+        {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
+            State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
 
         
         {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL_COMPLETE},
             State::IDLE},
         {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_COMPLETE},
             State::IDLE},
-    }
+    };
 }
 
 std::unordered_map<Transition, std::function<TransitionCallbackReturn(const Transition&)>> StateManager::init_callback_map() {
     return {
         // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
-        {Transition::TRANSITION_CALIBRATE, {State::IDLE, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_CALIBRATE, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         // From TRANSITION_STATE_PRE_CAL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_CALIBRATE_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_CALIBRATE_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         
 
         // From IDLE to TRANSITION_STATE_ACTIVATING_POS_CONTROL to POS_CONTROL
-        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, {State::POS_CONTROL, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         // From TRANSITION_STATE_ACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
 
 
         // From POS_CONTROL to TRANSITION_STATE_DEACTIVATING_POS_CONTROL to IDLE
-        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         // From TRANSITION_STATE_DEACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
 
 
         // From IDLE to TRANSITION_STATE_ACTIVATING_VEL_CONTROL to VEL_CONTROL
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, {State::VEL_CONTROL, 
-            std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)}},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL,
+            std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)},
 
         // From TRANSITION_STATE_ACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
 
 
         // From VEL_CONTROL to TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to IDLE
-        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         // From TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
 
 
         // From IDLE/POS_CONTROL/VEL_CONTROL to TRANSITION_STATE_SHUTTING_DOWN to FINALIZED
-        {Transition::TRANSITION_SHUTDOWN, {State::FINALIZED, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_SHUTDOWN, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
+        }},
         // From TRANSITION_STATE_SHUTTING_DOWN to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_SHUTDOWN_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
+        {Transition::TRANSITION_ON_SHUTDOWN_ERROR, [](const uint8_t transition_id) {
             (void)transition_id;
             return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}}
-    }
+        }}
+    };
+}
+
+std::unordered_map<Transition, std::function<bool(const Transition&)>> StateManager::init_predicate_map() {
+    return {
+        {Transition::TRANSITION_CALIBRATE, 
+            [](const Transition&) { return true; }},  // Always allows transition
+            
+        {Transition::TRANSITION_ON_CALIBRATE_ERROR, 
+            [](const Transition&) { return false; }},  // Never allows transition
+            
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, 
+            [](const Transition& t) { 
+                // Some dummy condition
+                return t == Transition::TRANSITION_ACTIVATE_POS_CONTROL; 
+            }}
+    };
+}
+
+std::unordered_map<Transition, StateManager::TransitionType> StateManager::init_transition_type_map() {
+    return {
+        // TYPE_A transitions
+        {Transition::TRANSITION_CALIBRATE, StateManager::TransitionType::TYPE_A},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, StateManager::TransitionType::TYPE_A},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, StateManager::TransitionType::TYPE_A},
+        {Transition::TRANSITION_SHUTDOWN, StateManager::TransitionType::TYPE_A},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, StateManager::TransitionType::TYPE_A},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, StateManager::TransitionType::TYPE_A},
+
+        // TYPE_B transitions
+        {Transition::TRANSITION_CALIBRATE_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_SHUTDOWN_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_ERR_PROCESSING_COMPLETE, StateManager::TransitionType::TYPE_B},
+        {Transition::TRANSITION_ERR_PROCESSING_ERROR, StateManager::TransitionType::TYPE_B},
+
+        // TYPE_C transitions (all error transitions)
+        {Transition::TRANSITION_CALIBRATE_ERROR, StateManager::TransitionType::TYPE_C},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_ERROR, StateManager::TransitionType::TYPE_C},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_ERROR, StateManager::TransitionType::TYPE_C},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_ERROR, StateManager::TransitionType::TYPE_C},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_ERROR, StateManager::TransitionType::TYPE_C},
+        {Transition::TRANSITION_SHUTDOWN_ERROR, StateManager::TransitionType::TYPE_C}
+    };
 }
 
 void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
@@ -251,24 +303,6 @@ StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(cons
     return TransitionCallbackReturn::SUCCESS;
 }
 
-
-const std::map<std::uint8_t, std::uint8_t> StateManager::transition_fall_back_state_map_ = {
-    {State::TRANSITION_STATE_PRE_CAL, State::UNINIT},
-    {State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, State::IDLE},
-    {State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, State::IDLE},
-    {State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, State::POS_CONTROL},
-    {State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, State::VEL_CONTROL},
-    {State::TRANSITION_STATE_ERR_PROCESSING, State::FINALIZED}
-};
-
-const std::map<std::uint8_t, std::uint8_t> StateManager::transition_error_transition_map_ = {
-    {State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_ON_CALIBRATE_ERROR},
-    {State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR},
-    {State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR},
-    {State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR},
-    {State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR},
-    {State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_ON_SHUTDOWN_ERROR}
-};
 
 } // namespace composition
 
