@@ -69,6 +69,7 @@ private:
     mutable std::recursive_mutex state_mutex_;
 
     TransitionCallbackReturn activate_arcade_driver(const uint8_t transition_id);
+    TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
 };
 
 } // namespace composition

@@ -18,7 +18,7 @@ ros2 lifecycle get /state_manager
 ros2 lifecycle set /state_manager configure
 ros2 lifecycle set /state_manager activate
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
-ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 2, label: 'calibrate'}}"
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 6, label: 'calibrate'}}"
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
 ros2 lifecycle set /arcade_driver configure
 

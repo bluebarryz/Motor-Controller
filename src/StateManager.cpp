@@ -41,40 +41,42 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
-    RCLCPP_INFO(get_logger(), "calling handle_change_state");
+    RCLCPP_INFO(get_logger(), "calling handle_change_state. Current state: %d. Transition: %d", current_state_, request->transition.id);
 
     // const auto& transition_map = get_transition_map();
-    // // check if transition is legal
-    // auto tr = transition_map.find({current_state_, request->transition.id});
-    // if (tr == transition_map.end()) {
-    //     // did not find transition in the transition table
-    //     RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
-    //                 request->transition.id, current_state_);
-    //     response->success = false;
-    // }
+    // check if transition is legal
+    uint8_t transition = request->transition.id;
+    auto tr = transition_map_.find({current_state_, transition});
+    if (tr == transition_map_.end()) {
+        // did not find transition in the transition table
+        RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
+                    transition, current_state_);
+        response->success = false;
+    }
 
-    // uint8_t transition = tr->first.second;
-    // uint8_t next_state = tr->second;
-    // uint8_t transition_type = get_transition_type_map().at(transition);
-    // if (transition_type == Transition::TYPE_A) {
-    //     {
-    //         std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-    //         current_state_ = next_state;
-    //     }
+    uint8_t next_state = tr->second;
+    uint8_t transition_type = transition_type_map_.at(transition);
+    RCLCPP_INFO(get_logger(), "Transition type for transition %d is %d", transition, transition_type);
+    if (transition_type == Transition::TYPE_A) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+            current_state_ = next_state;
+        }
 
-    //     auto callback = get_callback_map().find(transition)->second;
-    //     callback(transition);
-    // } else if (transition_type == Transition::TYPE_B) {
-    //     auto predicate = get_predicate_map().find(transition)->second;
-    //     if (predicate(transition)) {
-    //         {
-    //         std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-    //         current_state_ = next_state;
-    //     }
-    //     }
-    // } else if (transition_type == Transition::TYPE_C) {
-    //     //TODO
-    // } 
+        auto callback = callback_map_.at(transition);
+        callback(transition);
+    } else if (transition_type == Transition::TYPE_B) {
+        RCLCPP_INFO(get_logger(), "Type B transition.");
+        auto predicate = predicate_map_.at(transition);
+        if (predicate(transition)) {
+            {
+            std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+            current_state_ = next_state;
+        }
+        }
+    } else if (transition_type == Transition::TYPE_C) {
+        //TODO
+    } 
 
     response->success = true;
 }
@@ -125,10 +127,8 @@ void StateManager::init_transition_map() {
 void StateManager::init_callback_map() {
     callback_map_ = {
         // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
-        {Transition::TRANSITION_CALIBRATE, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return TransitionCallbackReturn::SUCCESS;
-        }},
+        {Transition::TRANSITION_CALIBRATE, 
+            std::bind(&StateManager::pre_calibration, this, std::placeholders::_1)},
         {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, 
             std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)}
     };
@@ -136,8 +136,8 @@ void StateManager::init_callback_map() {
 
 void StateManager::init_predicate_map() {
     predicate_map_ = {
-        {Transition::TRANSITION_CALIBRATE, 
-            [](const uint8_t t) { (void) t; return true; }}
+        {Transition::TRANSITION_CALIBRATE_COMPLETE, 
+            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }}
     };
 }
 
@@ -231,6 +231,16 @@ TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t tran
     return TransitionCallbackReturn::SUCCESS;
 }
 
+TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
+    (void)transition_id;
+    RCLCPP_INFO(get_logger(), "Pre-calibration complete!");
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+    request->transition.id = Transition::TRANSITION_CALIBRATE_COMPLETE;
+    StateManager::handle_change_state(request, response);
+    return TransitionCallbackReturn::SUCCESS;
+}
 
 } // namespace composition
 
