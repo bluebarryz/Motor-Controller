@@ -137,7 +137,9 @@ void StateManager::init_callback_map() {
 void StateManager::init_predicate_map() {
     predicate_map_ = {
         {Transition::TRANSITION_CALIBRATE_COMPLETE, 
-            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }}
+            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE, 
+            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL; }}
     };
 }
 
@@ -217,6 +219,8 @@ TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t tran
     
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+
+    RCLCPP_INFO(get_logger(), "Calling activate arcade driver");
 
     while (!arcade_driver_lifecycle_client->wait_for_service(std::chrono::seconds(1))) {
         if (!rclcpp::ok()) {

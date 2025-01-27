@@ -3,6 +3,8 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include "motor_controller/msg/arcade_speed.hpp"
 #include <lifecycle_msgs/msg/state.hpp>
+#include "motor_controller/msg/transition.hpp"
+#include "motor_controller/srv/change_state.hpp"
 
 
 namespace composition {
@@ -15,7 +17,7 @@ private:
     on_configure(const rclcpp_lifecycle::State &);
     
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_activate(const rclcpp_lifecycle::State &);
+    on_activate(const rclcpp_lifecycle::State &state);
     
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_deactivate(const rclcpp_lifecycle::State &);
@@ -28,6 +30,8 @@ private:
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr joystick_sub;
     rclcpp_lifecycle::LifecyclePublisher<motor_controller::msg::ArcadeSpeed>::SharedPtr arcade_pub;
+    rclcpp::Client<motor_controller::srv::ChangeState>::SharedPtr state_manager_client;
+
 
     motor_controller::msg::ArcadeSpeed joystick_to_speed_mapper(const float joystick_rotate, const float joystick_drive);
     void joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg);

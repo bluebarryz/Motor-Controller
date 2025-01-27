@@ -21,17 +21,43 @@ ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
         
     arcade_pub = create_publisher<motor_controller::msg::ArcadeSpeed>(
         "/cmd_vel", 10);
+
+	state_manager_client = create_client<motor_controller::srv::ChangeState>("/state_manager/change_mc_state");
         
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-ArcadeDriver::on_activate(const rclcpp_lifecycle::State &) {
+ArcadeDriver::on_activate(const rclcpp_lifecycle::State & state) {
     RCLCPP_INFO(get_logger(), "Activating ArcadeDriver");
     
     // Activate the lifecycle publisher
     arcade_pub->on_activate();
     
+    // Get the transition ID from the state transition label
+    // uint8_t desired_transition_id;
+    // try {
+    //     desired_transition_id = static_cast<uint8_t>(std::stoi(state.label()));
+    //     RCLCPP_INFO(get_logger(), "Received transition ID: %d", desired_transition_id);
+    // } catch (const std::exception& e) {
+    //     RCLCPP_ERROR(get_logger(), "Failed to parse transition ID from state label: %s", e.what());
+    //     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    // }
+
+    // while (!state_manager_client->wait_for_service(std::chrono::seconds(1))) {
+    //     if (!rclcpp::ok()) {
+    //         RCLCPP_ERROR(get_logger(), "Interrupted while waiting for service");
+    //         return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    //     }
+    //     RCLCPP_INFO(get_logger(), "Waiting for state manager service...");
+    // }
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    motor_controller::msg::Transition transition;
+    transition.id = motor_controller::msg::Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE;
+    request->transition = transition;
+
+    auto future = state_manager_client->async_send_request(request);
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
