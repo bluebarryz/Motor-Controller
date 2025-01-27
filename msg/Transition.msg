@@ -1,3 +1,9 @@
+# Type identifiers
+uint8 TYPE_A = 1
+uint8 TYPE_B = 2
+uint8 TYPE_C = 3
+
+
 # From UNINIT to TRANSITION_STATE_PRE_CAL
 uint8 TRANSITION_CALIBRATE = 4
 
