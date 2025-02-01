@@ -40,9 +40,9 @@ def generate_launch_description():
                     name='joy_to_twist',
                     parameters=[{
                         'axis_linear': 1,    # Left stick vertical
-                        'axis_angular': 0,   # Left stick horizontal
+                        'axis_angular': 2,   # Right stick horizontal
                         'scale_linear': 1.0,
-                        'scale_angular': 1.0,
+                        'scale_angular': -1.0, # Logitech controller is reversed (left is positive, right negative)
                     }]
                 ),
                 ComposableNode(

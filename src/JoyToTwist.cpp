@@ -8,9 +8,9 @@ JoyToTwist::JoyToTwist(const rclcpp::NodeOptions & options)
 : Node("joy_to_twist", options) {
     // Declare parameters
     this->declare_parameter("axis_linear", 1);    // Left stick vertical
-    this->declare_parameter("axis_angular", 0);   // Left stick horizontal
+    this->declare_parameter("axis_angular", 2);   // Right stick horizontal
     this->declare_parameter("scale_linear", 1.0);
-    this->declare_parameter("scale_angular", 1.0);
+    this->declare_parameter("scale_angular", -1.0);
     
     // Get parameters
     axis_linear_ = this->get_parameter("axis_linear").as_int();
@@ -39,7 +39,7 @@ void JoyToTwist::joy_callback(const sensor_msgs::msg::Joy::SharedPtr joy_msg) {
         RCLCPP_DEBUG(get_logger(), "Publishing Twist - linear.x: %.2f, angular.z: %.2f",
                      twist_msg.linear.x, twist_msg.angular.z);
 
-        if (twist_msg.linear.x > 0 || twist_msg.angular.z > 0) {  
+        if (twist_msg.linear.x != 0 || twist_msg.angular.z != 0) {  
             twist_pub_->publish(twist_msg);
         }
     } else {
