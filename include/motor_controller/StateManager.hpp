@@ -12,6 +12,10 @@
 
 namespace composition {
 
+using Transition = motor_controller::msg::Transition;
+using State = motor_controller::msg::State;
+
+
 class StateManager : public rclcpp_lifecycle::LifecycleNode {
 public:
     explicit StateManager(const rclcpp::NodeOptions &options);
@@ -44,37 +48,28 @@ private:
     void handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
         std::shared_ptr<motor_controller::srv::GetState::Response> response);
 
-    // must only be called while holding the mutex
-    bool try_transition(uint8_t transition_id);
-    TransitionCallbackReturn execute_callback(
-        std::function<TransitionCallbackReturn(const uint8_t transition_id)> callback, uint8_t transition_id);
 
-    std::string state_to_string(uint8_t state);
+    // transition_map_ maps a pair containing {a state and a transition from that state} to the next state.
+    std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
+    void init_transition_map();
 
-    // transition_map_ maps a pair containing {a state and a transition from that state} to the corresponding
-    //  transition state.
-    static const std::map<std::pair<uint8_t, uint8_t>, uint8_t> transition_map_;
-
-    // transition_fall_back_state_map_ maps a transition state to the state to fallback to if the
-    //  transition callback returns FAILURE.
-    static const std::map<std::uint8_t, std::uint8_t> transition_fall_back_state_map_;
-    
-    // transition_error_transition_map_ maps a transition state to the transition of the corresponding
-    //  error handler transition if the transition callback return ERROR
-    static const std::map<std::uint8_t, std::uint8_t> transition_error_transition_map_;
-    
-    // callback_map_ maps a transition id to a pair containing:
-    //      1. the destination state id
-    //      2. the callback to execute for this transition
-    std::map<
-        std::uint8_t,
-        std::pair<uint8_t, std::function<TransitionCallbackReturn(const uint8_t transition_id)>>> callback_map_;
+    // callback_map_ maps a transition id to a callback to execute for this transition
+    std::unordered_map<uint8_t, std::function<TransitionCallbackReturn(const uint8_t t_id)>> callback_map_;
     void init_callback_map();
+
+    // predicate_map_ maps a transition id to a predicate function
+    std::unordered_map<uint8_t, std::function<bool(const uint8_t t_id)>> predicate_map_;
+    void init_predicate_map();
+
+    // transition_type_map_ maps each transition id to a Transition Type
+    std::unordered_map<uint8_t, uint8_t> transition_type_map_;
+    void init_transition_type_map();
 
     uint8_t current_state_;
     mutable std::recursive_mutex state_mutex_;
 
-    TransitionCallbackReturn activate_arcade_driver(const uint8_t transition_id);
+    TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
+    TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
 };
 
 } // namespace composition

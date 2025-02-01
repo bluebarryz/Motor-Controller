@@ -21,6 +21,8 @@ ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
         
     arcade_pub = create_publisher<motor_controller::msg::ArcadeSpeed>(
         "/cmd_vel", 10);
+
+	state_manager_client = create_client<motor_controller::srv::ChangeState>("/state_manager/change_mc_state");
         
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -31,8 +33,13 @@ ArcadeDriver::on_activate(const rclcpp_lifecycle::State &) {
     
     // Activate the lifecycle publisher
     arcade_pub->on_activate();
-    RCLCPP_INFO(get_logger(), "done Activating ArcadeDriver");
-    
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    motor_controller::msg::Transition transition;
+    transition.id = motor_controller::msg::Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE;
+    request->transition = transition;
+
+    auto future = state_manager_client->async_send_request(request);
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
@@ -42,7 +49,13 @@ ArcadeDriver::on_deactivate(const rclcpp_lifecycle::State &) {
     
     // Deactivate the lifecycle publisher
     arcade_pub->on_deactivate();
-    
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    motor_controller::msg::Transition transition;
+    transition.id = motor_controller::msg::Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE;
+    request->transition = transition;
+
+    auto future = state_manager_client->async_send_request(request);
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 

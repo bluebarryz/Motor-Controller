@@ -1,13 +1,19 @@
 #include "motor_controller/StateManager.hpp"
 
-using namespace motor_controller::msg;
+// using namespace motor_controller::msg;
+
 namespace composition {
 
+using TransitionCallbackReturn = StateManager::TransitionCallbackReturn;
+
 StateManager::StateManager(const rclcpp::NodeOptions &options)
-    : LifecycleNode("state_manager", options), current_state_{motor_controller::msg::State::UNINIT} {
+    : LifecycleNode("state_manager", options), current_state_{State::UNINIT} {
     RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
 
+    init_transition_map();
     init_callback_map();
+    init_predicate_map();
+    init_transition_type_map();
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -35,21 +41,153 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
-    RCLCPP_INFO(get_logger(), "calling handle_change_state");
+    RCLCPP_INFO(get_logger(), "calling handle_change_state. Current state: %d. Transition: %d", current_state_, request->transition.id);
 
-    try {
-        // std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-        RCLCPP_INFO(get_logger(), "preparing to call try_transition");
-        bool transition_success = try_transition(request->transition.id);
-        response->success = transition_success;
-        if (!transition_success) {
-            // TODO
-        }
-    } catch (const std::exception& e) {
+    // const auto& transition_map = get_transition_map();
+    // check if transition is legal
+    uint8_t transition = request->transition.id;
+    auto tr = transition_map_.find({current_state_, transition});
+    if (tr == transition_map_.end()) {
+        // did not find transition in the transition table
+        RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
+                    transition, current_state_);
         response->success = false;
-        // TODO
     }
-    
+
+    uint8_t next_state = tr->second;
+    uint8_t transition_type = transition_type_map_.at(transition);
+    RCLCPP_INFO(get_logger(), "Transition type for transition %d is %d", transition, transition_type);
+    if (transition_type == Transition::TYPE_A) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+            current_state_ = next_state;
+        }
+
+        auto callback = callback_map_.at(transition);
+        callback(transition);
+    } else if (transition_type == Transition::TYPE_B) {
+        RCLCPP_INFO(get_logger(), "Type B transition.");
+        auto predicate = predicate_map_.at(transition);
+        if (predicate(transition)) {
+            {
+            std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+            current_state_ = next_state;
+        }
+        }
+    } else if (transition_type == Transition::TYPE_C) {
+        //TODO
+    } else if (transition_type == Transition::TYPE_D) {
+    }
+
+    response->success = true;
+}
+
+void StateManager::init_transition_map() {
+    transition_map_ = {
+        {{State::UNINIT, Transition::TRANSITION_CALIBRATE},
+            State::TRANSITION_STATE_PRE_CAL},
+        {{State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_CALIBRATE_COMPLETE},
+            State::IDLE},
+
+
+        {{State::IDLE, Transition::TRANSITION_ACTIVATE_POS_CONTROL},
+            State::TRANSITION_STATE_ACTIVATING_POS_CONTROL},
+        {{State::IDLE, Transition::TRANSITION_ACTIVATE_VEL_CONTROL},
+            State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL},
+
+
+        {{State::IDLE, Transition::TRANSITION_SHUTDOWN},
+            State::TRANSITION_STATE_SHUTTING_DOWN},
+        {{State::POS_CONTROL, Transition::TRANSITION_SHUTDOWN},
+            State::TRANSITION_STATE_SHUTTING_DOWN},
+        {{State::VEL_CONTROL, Transition::TRANSITION_SHUTDOWN},
+            State::TRANSITION_STATE_SHUTTING_DOWN},
+
+
+        {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE},
+            State::POS_CONTROL},
+        {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE},
+            State::VEL_CONTROL},
+        {{State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_SHUTDOWN_COMPLETE},
+            State::FINALIZED},
+   
+
+        {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
+            State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
+        {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL},
+            State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
+
+        
+        {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE},
+            State::IDLE},
+        {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE},
+            State::IDLE},
+    };
+}
+
+void StateManager::init_callback_map() {
+    callback_map_ = std::unordered_map<uint8_t, std::function<TransitionCallbackReturn(const uint8_t)>>{
+        // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
+        {Transition::TRANSITION_CALIBRATE, 
+            std::bind(&StateManager::pre_calibration, this, std::placeholders::_1)},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL,
+            [this](const uint8_t transition_id) {
+                (void)transition_id;
+                return this->change_arcade_driver_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+            }},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL,
+            [this](const uint8_t transition_id) {
+                (void)transition_id;
+                return this->change_arcade_driver_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+            }}
+    };
+}
+
+void StateManager::init_predicate_map() {
+    predicate_map_ = {
+        {Transition::TRANSITION_CALIBRATE_COMPLETE, 
+            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }},
+        {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, 
+            [this](const uint8_t t) { 
+                (void) t; 
+                return (current_state_ == State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL || 
+                    current_state_ == State::TRANSITION_STATE_ACTIVATING_POS_CONTROL); 
+            }},
+        {Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE, 
+            [this](const uint8_t t) { 
+                (void) t; 
+                return (current_state_ == State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL || 
+                    current_state_ == State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL); 
+            }}
+    };
+}
+
+void StateManager::init_transition_type_map() {
+    transition_type_map_ = {
+        // TYPE_A transitions
+        {Transition::TRANSITION_CALIBRATE, Transition::TYPE_A},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, Transition::TYPE_A},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, Transition::TYPE_A},
+        {Transition::TRANSITION_SHUTDOWN, Transition::TYPE_A},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, Transition::TYPE_A},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, Transition::TYPE_A},
+
+        // TYPE_B transitions
+        {Transition::TRANSITION_CALIBRATE_COMPLETE, Transition::TYPE_B},
+        {Transition::TRANSITION_SHUTDOWN_COMPLETE, Transition::TYPE_B},
+        {Transition::TRANSITION_ERR_PROCESSING_COMPLETE, Transition::TYPE_B},
+        {Transition::TRANSITION_ERR_PROCESSING_ERROR, Transition::TYPE_B},
+        {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B},
+        {Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B}, 
+
+        // TYPE_C transitions (all error transitions)
+        {Transition::TRANSITION_CALIBRATE_ERROR, Transition::TYPE_C},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_C},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_C},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_C},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_C},
+        {Transition::TRANSITION_SHUTDOWN_ERROR, Transition::TYPE_C}
+    };
 }
 
 void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv::GetState::Request> request,
@@ -57,107 +195,9 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
     std::lock_guard<std::recursive_mutex> lock(state_mutex_);
     (void)request;
     response->current_state.id = current_state_;
-    response->current_state.label = state_to_string(current_state_);
+    // response->current_state.label = state_to_string(current_state_);
 }
 
-bool StateManager::try_transition(uint8_t transition_id) {
-    RCLCPP_INFO(get_logger(), "Calling try_transition for transition_id: %d", transition_id);
-
-    // check if transition is legal
-    auto tr_id = transition_map_.find({current_state_, transition_id});
-    if (tr_id == transition_map_.end()) {
-        // did not find transition in the transition table
-        RCLCPP_WARN(get_logger(), "Invalid transition %d from state %d",
-                    transition_id, current_state_);
-        return false;
-    }
-
-    {
-        // set current_state_ to be the transitional state
-        std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-        current_state_ = tr_id->second;
-    }
-    
-    // search for the associated transition callback and destination primary state
-    auto tr_cb = callback_map_.find(transition_id);
-    if (tr_cb == callback_map_.end()) {
-        RCLCPP_ERROR(
-            get_logger(),
-            "No callback associated with transition %d", transition_id);
-    }
-    auto callback = tr_cb->second.second;
-    auto cb_success = StateManager::execute_callback(callback, transition_id);
-    
-    // if callback suceeds, set current_state to be the destination primary state
-    if (cb_success == StateManager::TransitionCallbackReturn::SUCCESS) {
-        std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-        current_state_ = tr_cb->second.first;
-    } else if (cb_success == StateManager::TransitionCallbackReturn::ERROR) {
-        auto tr_err = transition_error_transition_map_.find(current_state_);
-        if (tr_err == transition_error_transition_map_.end()) {
-            RCLCPP_ERROR(
-                get_logger(),
-                "No error transition associated with state %d", current_state_);
-        }
-        // Make a rescursive call with the error handler transition.
-        StateManager::try_transition(tr_err->second);
-    } else if (cb_success == StateManager::TransitionCallbackReturn::FAILURE) {
-        auto tr_fail = transition_fall_back_state_map_.find(current_state_);
-        if (tr_fail == transition_fall_back_state_map_.end()) {
-            RCLCPP_ERROR(
-                get_logger(),
-                "No fallback state associated with state %d", current_state_);
-        }
-        std::lock_guard<std::recursive_mutex> lock(state_mutex_);
-        current_state_ = tr_fail->second;
-    }
-
-    return true;
-}
-
-StateManager::TransitionCallbackReturn StateManager::execute_callback(
-    std::function<TransitionCallbackReturn(const uint8_t transition_id)> callback, uint8_t transition_id) {
-    
-    auto cb_success = StateManager::TransitionCallbackReturn::SUCCESS;
-   
-    try {
-        cb_success = callback(transition_id);
-    } catch (const std::exception & e) {
-        RCLCPP_ERROR(
-            get_logger(),
-            "Caught exception in callback for transition %d", transition_id);
-        RCLCPP_ERROR(
-            get_logger(),
-            "Original error: %s", e.what());
-        cb_success = StateManager::TransitionCallbackReturn::ERROR;
-    }
-    
-    return cb_success;
-}
-
-// TODO: do this for Transitions too
-std::string StateManager::state_to_string(uint8_t state) {
-    switch (state) {
-        case motor_controller::msg::State::UNINIT: 
-            return "UNINIT";
-        case motor_controller::msg::State::TRANSITION_STATE_PRE_CAL: 
-            return "PRE_CAL";
-        case motor_controller::msg::State::IDLE: 
-            return "IDLE";
-        case motor_controller::msg::State::POS_CONTROL: 
-            return "POS_CONTROL";
-        case motor_controller::msg::State::VEL_CONTROL: 
-            return "VEL_CONTROL";
-        case motor_controller::msg::State::TRANSITION_STATE_SHUTTING_DOWN: 
-            return "SHUTTING_DOWN";
-        case motor_controller::msg::State::TRANSITION_STATE_ERR_PROCESSING: 
-            return "ERROR_PROCESSING";
-        case motor_controller::msg::State::FINALIZED: 
-            return "FINALIZED";
-        default: 
-            return "UNKNOWN";
-    }
-}
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 StateManager::on_activate(const rclcpp_lifecycle::State &) {
@@ -190,170 +230,37 @@ StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-
-const std::map<std::pair<uint8_t, uint8_t>, uint8_t> StateManager::transition_map_ = {
-    {{State::UNINIT, Transition::TRANSITION_CALIBRATE},
-        State::TRANSITION_STATE_PRE_CAL},
-    {{State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_ON_CALIBRATE_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING},
-
-    {{State::IDLE, Transition::TRANSITION_ACTIVATE_POS_CONTROL},
-        State::TRANSITION_STATE_ACTIVATING_POS_CONTROL},
-    {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING},
-
-    {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
-        State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
-    {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING},
-
-    {{State::IDLE, Transition::TRANSITION_ACTIVATE_VEL_CONTROL},
-        State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL},
-    {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING},
-
-    {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL},
-        State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
-    {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING},
-
-    {{State::IDLE, Transition::TRANSITION_SHUTDOWN},
-        State::TRANSITION_STATE_SHUTTING_DOWN},
-    {{State::POS_CONTROL, Transition::TRANSITION_SHUTDOWN},
-        State::TRANSITION_STATE_SHUTTING_DOWN},
-    {{State::VEL_CONTROL, Transition::TRANSITION_SHUTDOWN},
-        State::TRANSITION_STATE_SHUTTING_DOWN},
-    {{State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_ON_SHUTDOWN_ERROR},
-        State::TRANSITION_STATE_ERR_PROCESSING}
-};
-
-StateManager::TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
-    (void)transition_id;
-    RCLCPP_INFO(get_logger(), "Starting activate_arcade_driver");
+TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t arcade_lifecycle_transition) {
+    auto arcade_driver_lifecycle_client = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-    request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+    request->transition.id = arcade_lifecycle_transition;
+
+    RCLCPP_INFO(get_logger(), "Calling activate arcade driver");
 
     while (!arcade_driver_lifecycle_client->wait_for_service(std::chrono::seconds(1))) {
         if (!rclcpp::ok()) {
             RCLCPP_ERROR(get_logger(), "Interrupted while waiting for lifecycle service. Exiting.");
-            return StateManager::TransitionCallbackReturn::ERROR;
+            return TransitionCallbackReturn::ERROR;
         }
         RCLCPP_INFO(get_logger(), "Service not available, waiting again...");
     }
 
-    RCLCPP_INFO(get_logger(), "Service available, sending request");
-    
+    auto future = arcade_driver_lifecycle_client->async_send_request(request);
 
-    arcade_driver_lifecycle_client->async_send_request(
-        request,
-        [this](rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture future) {
-            RCLCPP_INFO(get_logger(), "Got response callback");
-            auto result = future.get();
-            if (result->success) {
-                RCLCPP_INFO(get_logger(), "ArcadeDriver activation confirmed");
-            } else {
-                RCLCPP_ERROR(get_logger(), "ArcadeDriver activation failed");
-            }
-        });
-
-    RCLCPP_INFO(get_logger(), "Request sent, returning");
     return TransitionCallbackReturn::SUCCESS;
 }
 
+TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
+    (void)transition_id;
+    RCLCPP_INFO(get_logger(), "Pre-calibration complete!");
 
-void StateManager::init_callback_map() {
-    callback_map_ = {
-        // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
-        {Transition::TRANSITION_CALIBRATE, {State::IDLE, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        // From TRANSITION_STATE_PRE_CAL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_CALIBRATE_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        
-
-        // From IDLE to TRANSITION_STATE_ACTIVATING_POS_CONTROL to POS_CONTROL
-        {Transition::TRANSITION_ACTIVATE_POS_CONTROL, {State::POS_CONTROL, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        // From TRANSITION_STATE_ACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-
-
-        // From POS_CONTROL to TRANSITION_STATE_DEACTIVATING_POS_CONTROL to IDLE
-        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        // From TRANSITION_STATE_DEACTIVATING_POS_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-
-
-        // From IDLE to TRANSITION_STATE_ACTIVATING_VEL_CONTROL to VEL_CONTROL
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, {State::VEL_CONTROL, 
-            std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)}},
-
-        // From TRANSITION_STATE_ACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-
-
-        // From VEL_CONTROL to TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to IDLE
-        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, {State::IDLE, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        // From TRANSITION_STATE_DEACTIVATING_VEL_CONTROL to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-
-
-        // From IDLE/POS_CONTROL/VEL_CONTROL to TRANSITION_STATE_SHUTTING_DOWN to FINALIZED
-        {Transition::TRANSITION_SHUTDOWN, {State::FINALIZED, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-        // From TRANSITION_STATE_SHUTTING_DOWN to TRANSITION_STATE_ERR_PROCESSING to UNINIT
-        {Transition::TRANSITION_ON_SHUTDOWN_ERROR, {State::UNINIT, [](const uint8_t transition_id) {
-            (void)transition_id;
-            return StateManager::TransitionCallbackReturn::SUCCESS;
-        }}},
-    };
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+    request->transition.id = Transition::TRANSITION_CALIBRATE_COMPLETE;
+    StateManager::handle_change_state(request, response);
+    return TransitionCallbackReturn::SUCCESS;
 }
-
-
-const std::map<std::uint8_t, std::uint8_t> StateManager::transition_fall_back_state_map_ = {
-    {State::TRANSITION_STATE_PRE_CAL, State::UNINIT},
-    {State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, State::IDLE},
-    {State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, State::IDLE},
-    {State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, State::POS_CONTROL},
-    {State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, State::VEL_CONTROL},
-    {State::TRANSITION_STATE_ERR_PROCESSING, State::FINALIZED}
-};
-
-const std::map<std::uint8_t, std::uint8_t> StateManager::transition_error_transition_map_ = {
-    {State::TRANSITION_STATE_PRE_CAL, Transition::TRANSITION_ON_CALIBRATE_ERROR},
-    {State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_ACTIVATE_POS_CONTROL_ERROR},
-    {State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_ACTIVATE_VEL_CONTROL_ERROR},
-    {State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_POS_CONTROL_ERROR},
-    {State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_ON_DEACTIVATE_VEL_CONTROL_ERROR},
-    {State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_ON_SHUTDOWN_ERROR}
-};
 
 } // namespace composition
 
