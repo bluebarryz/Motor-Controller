@@ -130,6 +130,8 @@ void StateManager::init_callback_map() {
         // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
         {Transition::TRANSITION_CALIBRATE, 
             std::bind(&StateManager::pre_calibration, this, std::placeholders::_1)},
+        {Transition::TRANSITION_SHUTDOWN, 
+            std::bind(&StateManager::shutdown, this, std::placeholders::_1)},    
         {Transition::TRANSITION_ACTIVATE_VEL_CONTROL,
             [this](const uint8_t transition_id) {
                 (void)transition_id;
@@ -147,6 +149,8 @@ void StateManager::init_predicate_map() {
     predicate_map_ = {
         {Transition::TRANSITION_CALIBRATE_COMPLETE, 
             [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }},
+        {Transition::TRANSITION_SHUTDOWN_COMPLETE, 
+            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_SHUTTING_DOWN; }},
         {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, 
             [this](const uint8_t t) { 
                 (void) t; 
@@ -258,6 +262,17 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
     auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
     auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
     request->transition.id = Transition::TRANSITION_CALIBRATE_COMPLETE;
+    StateManager::handle_change_state(request, response);
+    return TransitionCallbackReturn::SUCCESS;
+}
+
+TransitionCallbackReturn StateManager::shutdown(const uint8_t transition_id) {
+    (void)transition_id;
+    RCLCPP_INFO(get_logger(), "Shutdown complete!");
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+    request->transition.id = Transition::TRANSITION_SHUTDOWN_COMPLETE;
     StateManager::handle_change_state(request, response);
     return TransitionCallbackReturn::SUCCESS;
 }

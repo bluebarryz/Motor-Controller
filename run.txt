@@ -1,18 +1,3 @@
-ros2 topic pub /joystick_input geometry_msgs/msg/Twist "{linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 1.0}}"
-
-colcon test --event-handlers console_direct+ --packages-select motor_controller
-
-
-___________
-cd uwrt/src/motor_controller/launch
-ros2 launch launch.py
-
-ros2 lifecycle set /arcade_driver configure
-ros2 lifecycle get /arcade_driver
-
-ros2 lifecycle set /motor_speed_controller configure
-
-
 
 
 ros2 lifecycle get /state_manager
@@ -30,4 +15,3 @@ ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 24, label: 'TRANSITION_DEACTIVATE_VEL_CONTROL'}}"
 ros2 lifecycle get /arcade_driver
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
-ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 28, label: 'deactive_vel_control'}}"

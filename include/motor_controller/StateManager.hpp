@@ -1,3 +1,6 @@
+#ifndef STATE_MANAGER_HPP_
+#define STATE_MANAGER_HPP_
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
@@ -70,6 +73,9 @@ private:
 
     TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
+    TransitionCallbackReturn shutdown(const uint8_t transition_id);
 };
 
 } // namespace composition
+
+#endif

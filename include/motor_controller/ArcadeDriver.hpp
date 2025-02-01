@@ -1,3 +1,6 @@
+#ifndef ARCADE_DRIVER_HPP_
+#define ARCADE_DRIVER_HPP_
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -40,3 +43,5 @@ private:
 };
 
 } // namespace composition
+
+#endif

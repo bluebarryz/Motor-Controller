@@ -1,3 +1,6 @@
+#ifndef MOTOR_SPEED_CONTROLLER_HPP_
+#define MOTOR_SPEED_CONTROLLER_HPP_
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include "motor_controller/msg/arcade_speed.hpp"
@@ -38,3 +41,5 @@ private:
 };
 
 } // namespace composition
+
+#endif
