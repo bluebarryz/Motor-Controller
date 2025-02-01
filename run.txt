@@ -1,17 +1,23 @@
+# Run the following sequence of commands to test StateManager, ArcadeDriver, and MotorSpeedController together
 
-
-ros2 lifecycle get /state_manager
+# Get components ready
 ros2 lifecycle set /state_manager configure
 ros2 lifecycle set /state_manager activate
+ros2 lifecycle set /arcade_driver configure
+ros2 lifecycle set /motor_speed_controller configure
+ros2 lifecycle set /motor_speed_controller activate
+
+# Calibration transition 
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 6, label: 'calibrate'}}"
-ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
-ros2 lifecycle set /arcade_driver configure
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 2 (IDLE)
 
+# Activate velocity control transition
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 12, label: 'active_vel_control'}}"
 ros2 lifecycle get /arcade_driver
-ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 7 (VEL_CONTROL)
 
+# Deactivate velocity control transition
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 24, label: 'TRANSITION_DEACTIVATE_VEL_CONTROL'}}"
 ros2 lifecycle get /arcade_driver
-ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 2 (IDLE)
