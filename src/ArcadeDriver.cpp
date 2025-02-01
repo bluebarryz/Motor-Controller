@@ -49,7 +49,13 @@ ArcadeDriver::on_deactivate(const rclcpp_lifecycle::State &) {
     
     // Deactivate the lifecycle publisher
     arcade_pub->on_deactivate();
-    
+
+    auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    motor_controller::msg::Transition transition;
+    transition.id = motor_controller::msg::Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE;
+    request->transition = transition;
+
+    auto future = state_manager_client->async_send_request(request);
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
