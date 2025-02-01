@@ -14,6 +14,7 @@ ros2 lifecycle set /motor_speed_controller configure
 
 
 
+
 ros2 lifecycle get /state_manager
 ros2 lifecycle set /state_manager configure
 ros2 lifecycle set /state_manager activate
@@ -22,7 +23,10 @@ ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeStat
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
 ros2 lifecycle set /arcade_driver configure
 
-
 ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 12, label: 'active_vel_control'}}"
+ros2 lifecycle get /arcade_driver
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}
+
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 24, label: 'TRANSITION_DEACTIVATE_VEL_CONTROL'}}"
 ros2 lifecycle get /arcade_driver
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {}

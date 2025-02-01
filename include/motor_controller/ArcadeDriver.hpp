@@ -17,7 +17,7 @@ private:
     on_configure(const rclcpp_lifecycle::State &);
     
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_activate(const rclcpp_lifecycle::State &state);
+    on_activate(const rclcpp_lifecycle::State &);
     
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_deactivate(const rclcpp_lifecycle::State &);

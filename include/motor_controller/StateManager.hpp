@@ -68,7 +68,7 @@ private:
     uint8_t current_state_;
     mutable std::recursive_mutex state_mutex_;
 
-    TransitionCallbackReturn activate_arcade_driver(const uint8_t transition_id);
+    TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
 };
 

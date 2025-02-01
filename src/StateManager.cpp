@@ -76,7 +76,8 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
         }
     } else if (transition_type == Transition::TYPE_C) {
         //TODO
-    } 
+    } else if (transition_type == Transition::TYPE_D) {
+    }
 
     response->success = true;
 }
@@ -103,9 +104,9 @@ void StateManager::init_transition_map() {
             State::TRANSITION_STATE_SHUTTING_DOWN},
 
 
-        {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ACTIVATE_POS_CONTROL_COMPLETE},
+        {{State::TRANSITION_STATE_ACTIVATING_POS_CONTROL, Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE},
             State::POS_CONTROL},
-        {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE},
+        {{State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL, Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE},
             State::VEL_CONTROL},
         {{State::TRANSITION_STATE_SHUTTING_DOWN, Transition::TRANSITION_SHUTDOWN_COMPLETE},
             State::FINALIZED},
@@ -113,24 +114,32 @@ void StateManager::init_transition_map() {
 
         {{State::POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
             State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL},
-        {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL},
+        {{State::VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL},
             State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL},
 
         
-        {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_DEACTIVATE_POS_CONTROL_COMPLETE},
+        {{State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL, Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE},
             State::IDLE},
-        {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_COMPLETE},
+        {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE},
             State::IDLE},
     };
 }
 
 void StateManager::init_callback_map() {
-    callback_map_ = {
+    callback_map_ = std::unordered_map<uint8_t, std::function<TransitionCallbackReturn(const uint8_t)>>{
         // From UNINIT to TRANSITION_STATE_PRE_CAL to IDLE
         {Transition::TRANSITION_CALIBRATE, 
             std::bind(&StateManager::pre_calibration, this, std::placeholders::_1)},
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL, 
-            std::bind(&StateManager::activate_arcade_driver, this, std::placeholders::_1)}
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL,
+            [this](const uint8_t transition_id) {
+                (void)transition_id;
+                return this->change_arcade_driver_state(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+            }},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL,
+            [this](const uint8_t transition_id) {
+                (void)transition_id;
+                return this->change_arcade_driver_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
+            }}
     };
 }
 
@@ -138,8 +147,18 @@ void StateManager::init_predicate_map() {
     predicate_map_ = {
         {Transition::TRANSITION_CALIBRATE_COMPLETE, 
             [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_PRE_CAL; }},
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE, 
-            [this](const uint8_t t) { (void) t; return current_state_ == State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL; }}
+        {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, 
+            [this](const uint8_t t) { 
+                (void) t; 
+                return (current_state_ == State::TRANSITION_STATE_ACTIVATING_VEL_CONTROL || 
+                    current_state_ == State::TRANSITION_STATE_ACTIVATING_POS_CONTROL); 
+            }},
+        {Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE, 
+            [this](const uint8_t t) { 
+                (void) t; 
+                return (current_state_ == State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL || 
+                    current_state_ == State::TRANSITION_STATE_DEACTIVATING_POS_CONTROL); 
+            }}
     };
 }
 
@@ -155,13 +174,11 @@ void StateManager::init_transition_type_map() {
 
         // TYPE_B transitions
         {Transition::TRANSITION_CALIBRATE_COMPLETE, Transition::TYPE_B},
-        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_COMPLETE, Transition::TYPE_B},
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_COMPLETE, Transition::TYPE_B},
         {Transition::TRANSITION_SHUTDOWN_COMPLETE, Transition::TYPE_B},
-        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_COMPLETE, Transition::TYPE_B},
-        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_COMPLETE, Transition::TYPE_B},
         {Transition::TRANSITION_ERR_PROCESSING_COMPLETE, Transition::TYPE_B},
         {Transition::TRANSITION_ERR_PROCESSING_ERROR, Transition::TYPE_B},
+        {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B},
+        {Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B}, 
 
         // TYPE_C transitions (all error transitions)
         {Transition::TRANSITION_CALIBRATE_ERROR, Transition::TYPE_C},
@@ -213,12 +230,11 @@ StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-TransitionCallbackReturn StateManager::activate_arcade_driver(const uint8_t transition_id) {
-    (void)transition_id;
+TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t arcade_lifecycle_transition) {
     auto arcade_driver_lifecycle_client = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-    request->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+    request->transition.id = arcade_lifecycle_transition;
 
     RCLCPP_INFO(get_logger(), "Calling activate arcade driver");
 
