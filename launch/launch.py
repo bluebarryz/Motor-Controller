@@ -7,25 +7,25 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     # Launch arguments
-    device_arg = DeclareLaunchArgument(
-        'joy_device',
-        default_value='/dev/input/js2',
-        description='Joystick device path'
-    )
+    # device_arg = DeclareLaunchArgument(
+    #     'joy_device',
+    #     default_value='/dev/input/js2',
+    #     description='Joystick device path'
+    # )
 
     return LaunchDescription([
-        device_arg,
+        # device_arg,
         
-        Node(
-            package='joy',
-            executable='joy_node',
-            name='joy_node',
-            parameters=[{
-                'dev': LaunchConfiguration('joy_device'),
-                'deadzone': 0.05,
-                'autorepeat_rate': 20.0,
-            }]
-        ),
+        # Node(
+        #     package='joy',
+        #     executable='joy_node',
+        #     name='joy_node',
+        #     parameters=[{
+        #         'dev': LaunchConfiguration('joy_device'),
+        #         'deadzone': 0.05,
+        #         'autorepeat_rate': 20.0,
+        #     }]
+        # ),
 
         
         ComposableNodeContainer(
@@ -34,17 +34,17 @@ def generate_launch_description():
             package='rclcpp_components',
             executable='component_container_mt',
             composable_node_descriptions=[
-                ComposableNode(
-                    package='motor_controller',
-                    plugin='motor_controller::JoyToTwist',
-                    name='joy_to_twist',
-                    parameters=[{
-                        'axis_linear': 1,    # Left stick vertical
-                        'axis_angular': 2,   # Right stick horizontal
-                        'scale_linear': 1.0,
-                        'scale_angular': -1.0, # Logitech controller is reversed (left is positive, right negative)
-                    }]
-                ),
+                # ComposableNode(
+                #     package='motor_controller',
+                #     plugin='motor_controller::JoyToTwist',
+                #     name='joy_to_twist',
+                #     parameters=[{
+                #         'axis_linear': 1,    # Left stick vertical
+                #         'axis_angular': 2,   # Right stick horizontal
+                #         'scale_linear': 1.0,
+                #         'scale_angular': -1.0, # Logitech controller is reversed (left is positive, right negative)
+                #     }]
+                # ),
                 ComposableNode(
                     package='motor_controller',
                     plugin='composition::ArcadeDriver',
