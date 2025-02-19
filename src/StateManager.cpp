@@ -249,6 +249,12 @@ TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t 
     return TransitionCallbackReturn::SUCCESS;
 }
 
+void StateManager::publish_odrive_request(const nlohmann::json& req_json) {
+    std_msgs::msg::String req_msg;
+    req_msg.data = req_json.dump();  // Convert JSON to string
+    odrive_pub->publish(req_msg);
+}
+
 TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
     (void)transition_id;
     RCLCPP_INFO(get_logger(), "Pre-calibration complete!");
@@ -258,20 +264,48 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
     // Get shared_ptr to this node
     auto node_ptr = std::dynamic_pointer_cast<rclcpp::Node>(shared_from_this());
     
+    publish_odrive_request(odrive_req1_json);
+
     // Wait for message
-    bool received = rclcpp::wait_for_message(
-        string_msg,              // Message to fill (not a shared_ptr)
-        node_ptr,                // Node as shared_ptr
-        "/OdriveJsonPub",       // Topic name
-        std::chrono::seconds(10) // Timeout
+    bool response1 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(10)
     );
 
-    if (received) {
-        // Message received successfully
-        RCLCPP_INFO(get_logger(), "Received msg success");
-        // Process the message here
+    if (response1) {
+        RCLCPP_INFO(get_logger(), "First odrive response success!");
+        publish_odrive_request(odrive_req2_json);
     } else {
-        RCLCPP_ERROR(get_logger(), "Failed to receive message within timeout");
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
+    }
+
+    bool response2 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(10)
+    );
+
+    if (response2) {
+        RCLCPP_INFO(get_logger(), "Second odrive response success!");
+        publish_odrive_request(odrive_req3_json);
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
+    }
+
+    bool response3 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(10)
+    );
+
+    if (response3) {
+        RCLCPP_INFO(get_logger(), "Third odrive response success!");
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
     }
 
 

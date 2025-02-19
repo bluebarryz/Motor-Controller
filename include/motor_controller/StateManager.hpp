@@ -79,6 +79,52 @@ private:
     TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
     TransitionCallbackReturn shutdown(const uint8_t transition_id);
+
+    void publish_odrive_request(const nlohmann::json& req_json);
+    const nlohmann::json odrive_req1_json = {
+            {"Stage", "Calibration"},
+            {"Type", "request"},
+            {"Target", "Drivetrain"},
+            {"Command", "Set_Axis_State"},
+            {"Payload", {
+                {"1", "FULL_CALIBRATION_SEQUENCE"},
+                {"2", "FULL_CALIBRATION_SEQUENCE"},
+                {"3", "FULL_CALIBRATION_SEQUENCE"},
+                {"4", "FULL_CALIBRATION_SEQUENCE"},
+                {"5", "FULL_CALIBRATION_SEQUENCE"},
+                {"6", "FULL_CALIBRATION_SEQUENCE"}
+            }}
+    };
+
+    const nlohmann::json odrive_req2_json = {
+        {"Stage", "Calibration"},
+        {"Type", "request"},
+        {"Target", "Drivetrain"},
+        {"Command", "Set_Axis_State"},
+        {"Payload", {
+            {"1", "CLOSED_LOOP_CONTROL"},
+            {"2", "CLOSED_LOOP_CONTROL"},
+            {"3", "CLOSED_LOOP_CONTROL"},
+            {"4", "CLOSED_LOOP_CONTROL"},
+            {"5", "CLOSED_LOOP_CONTROL"},
+            {"6", "CLOSED_LOOP_CONTROL"}
+        }}
+    };
+
+    nlohmann::json odrive_req3_json = {
+        {"Stage", "Calibration"},
+        {"Type", "request"},
+        {"Target", "Drivetrain"},
+        {"Command", "Set_Controller_Mode"},
+        {"Payload", {
+            {"1", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}},
+            {"2", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}},
+            {"3", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}},
+            {"4", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}},
+            {"5", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}},
+            {"6", {{"control_mode", "VELOCITY_CONTROL"}, {"input_mode", "VEL_RAMP"}}}
+        }}
+    };
 };
 
 #endif
