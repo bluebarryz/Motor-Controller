@@ -2,7 +2,6 @@
 
 
 using TransitionCallbackReturn = StateManager::TransitionCallbackReturn;
-// using json = nlohmann::json;
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
     : LifecycleNode("state_manager", options), current_state_{State::UNINIT} {
@@ -27,12 +26,12 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
         std::bind(&StateManager::handle_get_state, this, std::placeholders::_1, std::placeholders::_2));
 
     arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
-    // odrive_sub = create_subscription<std_msgs::msg::String>(
-    //     "~/OdriveJsonSub",
-    //     std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
+    odrive_sub = create_subscription<std_msgs::msg::String>(
+        "~/OdriveJsonSub", 10,
+        std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
 
-    // odrive_pub = create_publisher<std_msgs::msg::String>(
-    //     "~/OdriveJsonPub", 10);
+    odrive_pub = create_publisher<std_msgs::msg::String>(
+        "~/OdriveJsonPub", 10);
 
     if (!change_state_server || !get_state_server) {
         RCLCPP_ERROR(get_logger(), "Failed to create services");
@@ -44,14 +43,10 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 }
 
 
-// // Receives response from ODrive
-// void StateManager::odrive_sub_callback(const std_msgs::msg::String odrive_response) {
-//     json json_msg = json::parse(odrive_response->data);
-
-//     if (json_msg["Command"] == 'Set_Axis_State') {
-
-//     } else if (json_msg["Command"] == 'Set_Axis_State')
-// }
+// Receives response from ODrive
+void StateManager::odrive_sub_callback(const std_msgs::msg::String::SharedPtr odrive_response) {
+    json_msg_ = nlohmann::json::parse(odrive_response->data);
+}
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {

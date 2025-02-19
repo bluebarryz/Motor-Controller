@@ -12,12 +12,11 @@
 #include <lifecycle_msgs/srv/change_state.hpp>
 #include <lifecycle_msgs/srv/get_state.hpp>
 #include <std_msgs/msg/string.hpp>
-
+#include <nlohmann/json.hpp>
 
 
 using Transition = motor_controller::msg::Transition;
 using State = motor_controller::msg::State;
-
 
 class StateManager : public rclcpp_lifecycle::LifecycleNode {
 public:
@@ -70,6 +69,12 @@ private:
 
     uint8_t current_state_;
     mutable std::recursive_mutex state_mutex_;
+
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr odrive_sub;
+    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr odrive_pub;
+    nlohmann::json json_msg_;
+    void odrive_sub_callback(const std_msgs::msg::String::SharedPtr odrive_response);
+
 
     TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);

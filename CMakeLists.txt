@@ -18,6 +18,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArcadeSpeed.msg"
