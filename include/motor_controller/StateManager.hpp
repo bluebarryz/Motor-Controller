@@ -13,12 +13,12 @@
 #include <lifecycle_msgs/srv/get_state.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <nlohmann/json.hpp>
-
+#include "rclcpp/wait_for_message.hpp"
 
 using Transition = motor_controller::msg::Transition;
 using State = motor_controller::msg::State;
 
-class StateManager : public rclcpp_lifecycle::LifecycleNode {
+class StateManager : public rclcpp::Node {
 public:
     explicit StateManager(const rclcpp::NodeOptions &options);
     enum class TransitionCallbackReturn : uint8_t {
@@ -27,20 +27,20 @@ public:
         ERROR = lifecycle_msgs::msg::Transition::TRANSITION_CALLBACK_ERROR
     };
 private:
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_configure(const rclcpp_lifecycle::State &);
+    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+    // on_configure(const rclcpp_lifecycle::State &);
     
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_activate(const rclcpp_lifecycle::State &);
+    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+    // on_activate(const rclcpp_lifecycle::State &);
     
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_deactivate(const rclcpp_lifecycle::State &);
+    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+    // on_deactivate(const rclcpp_lifecycle::State &);
     
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_cleanup(const rclcpp_lifecycle::State &);
+    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+    // on_cleanup(const rclcpp_lifecycle::State &);
     
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_shutdown(const rclcpp_lifecycle::State &);
+    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+    // on_shutdown(const rclcpp_lifecycle::State &);
 
     rclcpp::Service<motor_controller::srv::ChangeState>::SharedPtr change_state_server;
     rclcpp::Service<motor_controller::srv::GetState>::SharedPtr get_state_server;
@@ -71,7 +71,7 @@ private:
     mutable std::recursive_mutex state_mutex_;
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr odrive_sub;
-    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr odrive_pub;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr odrive_pub;
     nlohmann::json json_msg_;
     void odrive_sub_callback(const std_msgs::msg::String::SharedPtr odrive_response);
 

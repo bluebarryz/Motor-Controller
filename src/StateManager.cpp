@@ -4,19 +4,9 @@
 using TransitionCallbackReturn = StateManager::TransitionCallbackReturn;
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
-    : LifecycleNode("state_manager", options), current_state_{State::UNINIT} {
-    RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
+    : Node("state_manager", options), current_state_{State::UNINIT} {
+    RCLCPP_INFO(get_logger(), "Initializing StateManager");
 
-    init_transition_map();
-    init_callback_map();
-    init_predicate_map();
-    init_transition_type_map();
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_configure(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Configuring StateManager");
-    
     change_state_server = create_service<motor_controller::srv::ChangeState>(
         "~/change_mc_state",
         std::bind(&StateManager::handle_change_state, this, std::placeholders::_1, std::placeholders::_2));
@@ -27,20 +17,46 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
 
     arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     odrive_sub = create_subscription<std_msgs::msg::String>(
-        "~/OdriveJsonSub", 10,
+        "/OdriveJsonPub", 10,
         std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
 
     odrive_pub = create_publisher<std_msgs::msg::String>(
-        "~/OdriveJsonPub", 10);
+        "/OdriveJsonSub", 10);
 
-    if (!change_state_server || !get_state_server) {
-        RCLCPP_ERROR(get_logger(), "Failed to create services");
-        return CallbackReturn::ERROR;
-    }
-
-    RCLCPP_INFO(get_logger(), "StateManager configured successfully");
-    return CallbackReturn::SUCCESS;
+    init_transition_map();
+    init_callback_map();
+    init_predicate_map();
+    init_transition_type_map();
 }
+
+// rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+// StateManager::on_configure(const rclcpp_lifecycle::State &) {
+//     RCLCPP_INFO(get_logger(), "Configuring StateManager");
+    
+//     change_state_server = create_service<motor_controller::srv::ChangeState>(
+//         "~/change_mc_state",
+//         std::bind(&StateManager::handle_change_state, this, std::placeholders::_1, std::placeholders::_2));
+    
+//     get_state_server = create_service<motor_controller::srv::GetState>(
+//         "~/get_mc_state",
+//         std::bind(&StateManager::handle_get_state, this, std::placeholders::_1, std::placeholders::_2));
+
+//     arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+//     odrive_sub = create_subscription<std_msgs::msg::String>(
+//         "~/OdriveJsonPub", 10,
+//         std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
+
+//     odrive_pub = create_publisher<std_msgs::msg::String>(
+//         "~/OdriveJsonSub", 10);
+
+//     if (!change_state_server || !get_state_server) {
+//         RCLCPP_ERROR(get_logger(), "Failed to create services");
+//         return CallbackReturn::ERROR;
+//     }
+
+//     RCLCPP_INFO(get_logger(), "StateManager configured successfully");
+//     return CallbackReturn::SUCCESS;
+// }
 
 
 // Receives response from ODrive
@@ -212,37 +228,6 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
 }
 
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_activate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Activating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_deactivate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Deactivating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_cleanup(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Cleaning up StateManager");
-    
-    change_state_server.reset();
-    get_state_server.reset();
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Shutting down StateManager");
-
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
 TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t arcade_lifecycle_transition) {
     auto arcade_driver_lifecycle_client = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     
@@ -267,6 +252,28 @@ TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t 
 TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
     (void)transition_id;
     RCLCPP_INFO(get_logger(), "Pre-calibration complete!");
+
+    std_msgs::msg::String string_msg;
+    
+    // Get shared_ptr to this node
+    auto node_ptr = std::dynamic_pointer_cast<rclcpp::Node>(shared_from_this());
+    
+    // Wait for message
+    bool received = rclcpp::wait_for_message(
+        string_msg,              // Message to fill (not a shared_ptr)
+        node_ptr,                // Node as shared_ptr
+        "/OdriveJsonPub",       // Topic name
+        std::chrono::seconds(10) // Timeout
+    );
+
+    if (received) {
+        // Message received successfully
+        RCLCPP_INFO(get_logger(), "Received msg success");
+        // Process the message here
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive message within timeout");
+    }
+
 
     auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
     auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
