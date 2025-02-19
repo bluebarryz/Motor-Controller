@@ -20,6 +20,9 @@ MotorSpeedController::on_configure(const rclcpp_lifecycle::State &) {
     motor_speeds_pub = create_publisher<motor_controller::msg::MotorSpeeds>(
         "/cmd_vel_out", 10);
 
+    odrive_pub = create_publisher<std_msgs::msg::String>(
+        "/OdriveJsonSub", 10);
+
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
@@ -29,6 +32,7 @@ MotorSpeedController::on_activate(const rclcpp_lifecycle::State &) {
     
     // Activate the lifecycle publisher
     motor_speeds_pub->on_activate();
+    odrive_pub->on_activate();
     RCLCPP_INFO(get_logger(), "MotorSpeedController activated");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -40,6 +44,7 @@ MotorSpeedController::on_deactivate(const rclcpp_lifecycle::State &) {
     
     // Deactivate the lifecycle publisher
     motor_speeds_pub->on_deactivate();
+    // odrive_pub->on_deactivate();
     RCLCPP_INFO(get_logger(), "MotorSpeedController deactivated");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -51,6 +56,7 @@ MotorSpeedController::on_cleanup(const rclcpp_lifecycle::State &) {
     
     arcade_sub.reset();
     motor_speeds_pub.reset();
+    // odrive_pub->reset();
     RCLCPP_INFO(get_logger(), "MotorSpeedController cleanup done");
     
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -62,6 +68,7 @@ MotorSpeedController::on_shutdown(const rclcpp_lifecycle::State &) {
     
     arcade_sub.reset();
     motor_speeds_pub.reset();
+    // odrive_pub->reset();
     RCLCPP_INFO(get_logger(), "MotorSpeedController shutdown done");
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -78,7 +85,25 @@ void MotorSpeedController::arcade_callback(const motor_controller::msg::ArcadeSp
     float arcade_right = arcade_msg.r;
 
     motor_controller::msg::MotorSpeeds motor_speeds_msg = MotorSpeedController::compute_motor_speeds(arcade_left, arcade_right);
-    motor_speeds_pub->publish(std::move(motor_speeds_msg));
+    motor_speeds_pub->publish(motor_speeds_msg);
+    publish_speeds_odrive(motor_speeds_msg);
+}
+
+void MotorSpeedController::publish_speeds_odrive(motor_controller::msg::MotorSpeeds speeds) {
+    std_msgs::msg::String req_msg;
+    nlohmann::json req_json = odrive_speed_req_json;
+
+    req_json["Payload"] = {
+        {"1", speeds.m1},
+        {"2", speeds.m2},
+        {"3", speeds.m3},
+        {"4", speeds.m4},
+        {"5", speeds.m5},
+        {"6", speeds.m6}
+    };
+    req_msg.data = odrive_speed_req_json.dump();
+
+    odrive_pub->publish(req_msg);
 }
 
 motor_controller::msg::MotorSpeeds MotorSpeedController::compute_motor_speeds(const float arcade_l, const float arcade_r) {

@@ -308,7 +308,7 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
     }
 
-
+    // Can complete the transition now
     auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
     auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
     request->transition.id = Transition::TRANSITION_CALIBRATE_COMPLETE;

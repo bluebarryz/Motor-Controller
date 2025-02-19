@@ -111,7 +111,7 @@ private:
         }}
     };
 
-    nlohmann::json odrive_req3_json = {
+    const nlohmann::json odrive_req3_json = {
         {"Stage", "Calibration"},
         {"Type", "request"},
         {"Target", "Drivetrain"},
