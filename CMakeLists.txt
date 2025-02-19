@@ -16,7 +16,8 @@ find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)  # Added for Joy messages
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArcadeSpeed.msg"
@@ -76,19 +77,15 @@ rosidl_target_interfaces(motor_speed_controller ${PROJECT_NAME} "rosidl_typesupp
 rclcpp_components_register_nodes(motor_speed_controller "composition::MotorSpeedController")
 #########
 
-#### state_manager component ###
-add_library(state_manager SHARED src/StateManager.cpp)
-target_compile_definitions(state_manager
-  PRIVATE "COMPOSITION_BUILDING_DLL"
-)
+#### state_manager node ###
+add_executable(state_manager src/StateManager.cpp)
 ament_target_dependencies(state_manager
   "rclcpp"
-  "rclcpp_components"
   "rclcpp_lifecycle"
   "lifecycle_msgs"
+  "std_msgs"
 )
 rosidl_target_interfaces(state_manager ${PROJECT_NAME} "rosidl_typesupport_cpp")
-rclcpp_components_register_nodes(state_manager "composition::StateManager")
 #########
 
 if(BUILD_TESTING)
@@ -100,7 +97,6 @@ if(BUILD_TESTING)
   target_link_libraries(joystick_test
     arcade_driver
     motor_speed_controller
-    state_manager
     joy_to_twist
   )
   

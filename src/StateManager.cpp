@@ -1,10 +1,8 @@
 #include "motor_controller/StateManager.hpp"
 
-// using namespace motor_controller::msg;
-
-namespace composition {
 
 using TransitionCallbackReturn = StateManager::TransitionCallbackReturn;
+// using json = nlohmann::json;
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
     : LifecycleNode("state_manager", options), current_state_{State::UNINIT} {
@@ -29,6 +27,12 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
         std::bind(&StateManager::handle_get_state, this, std::placeholders::_1, std::placeholders::_2));
 
     arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+    // odrive_sub = create_subscription<std_msgs::msg::String>(
+    //     "~/OdriveJsonSub",
+    //     std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
+
+    // odrive_pub = create_publisher<std_msgs::msg::String>(
+    //     "~/OdriveJsonPub", 10);
 
     if (!change_state_server || !get_state_server) {
         RCLCPP_ERROR(get_logger(), "Failed to create services");
@@ -38,6 +42,16 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "StateManager configured successfully");
     return CallbackReturn::SUCCESS;
 }
+
+
+// // Receives response from ODrive
+// void StateManager::odrive_sub_callback(const std_msgs::msg::String odrive_response) {
+//     json json_msg = json::parse(odrive_response->data);
+
+//     if (json_msg["Command"] == 'Set_Axis_State') {
+
+//     } else if (json_msg["Command"] == 'Set_Axis_State')
+// }
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
@@ -277,7 +291,18 @@ TransitionCallbackReturn StateManager::shutdown(const uint8_t transition_id) {
     return TransitionCallbackReturn::SUCCESS;
 }
 
-} // namespace composition
+int main(int argc, char* argv[])
+{
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions options;
+  auto node = std::make_shared<StateManager>(options);
+  
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  
+  executor.spin();
+  
+  rclcpp::shutdown();
+  return 0;
+}
 
-#include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(composition::StateManager)

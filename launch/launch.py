@@ -27,6 +27,12 @@ def generate_launch_description():
         #     }]
         # ),
 
+        Node(
+            package='motor_controller',
+            executable='state_manager',
+            name='state_manager',
+        ),
+
         
         ComposableNodeContainer(
             name='motor_controller_container',
@@ -54,11 +60,6 @@ def generate_launch_description():
                     package='motor_controller',
                     plugin='composition::MotorSpeedController',
                     name='motor_speed_controller'
-                ),
-                ComposableNode(
-                    package='motor_controller',
-                    plugin='composition::StateManager',
-                    name='state_manager'
                 )
             ]
         )

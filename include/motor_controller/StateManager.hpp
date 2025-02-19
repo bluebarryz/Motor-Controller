@@ -11,9 +11,9 @@
 #include <mutex>
 #include <lifecycle_msgs/srv/change_state.hpp>
 #include <lifecycle_msgs/srv/get_state.hpp>
+#include <std_msgs/msg/string.hpp>
 
 
-namespace composition {
 
 using Transition = motor_controller::msg::Transition;
 using State = motor_controller::msg::State;
@@ -75,7 +75,5 @@ private:
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
     TransitionCallbackReturn shutdown(const uint8_t transition_id);
 };
-
-} // namespace composition
 
 #endif
