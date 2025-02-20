@@ -101,19 +101,19 @@ void MotorSpeedController::publish_speeds_odrive(motor_controller::msg::MotorSpe
         {"5", speeds.m5},
         {"6", speeds.m6}
     };
-    req_msg.data = odrive_speed_req_json.dump();
+    req_msg.data = req_json.dump();
 
     odrive_pub->publish(req_msg);
 }
 
 motor_controller::msg::MotorSpeeds MotorSpeedController::compute_motor_speeds(const float arcade_l, const float arcade_r) {
     auto motor_speeds_msg = motor_controller::msg::MotorSpeeds();
-    motor_speeds_msg.m1 = arcade_l * 0.8;
-    motor_speeds_msg.m2 = arcade_l;
-    motor_speeds_msg.m3 = arcade_l;
-    motor_speeds_msg.m4 = arcade_r * 0.8;
-    motor_speeds_msg.m5 = arcade_r;
-    motor_speeds_msg.m6 = arcade_r;
+    motor_speeds_msg.m1 = arcade_l * 0.8 * 20;
+    motor_speeds_msg.m2 = arcade_l * 20;
+    motor_speeds_msg.m3 = arcade_l * -1 * 20;
+    motor_speeds_msg.m4 = arcade_r * 0.8 * 20 * -1;
+    motor_speeds_msg.m5 = arcade_r * -1 * 20;
+    motor_speeds_msg.m6 = arcade_r * 20;
     return motor_speeds_msg;
 }
 

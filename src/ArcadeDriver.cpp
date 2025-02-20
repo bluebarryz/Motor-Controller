@@ -81,7 +81,9 @@ ArcadeDriver::on_shutdown(const rclcpp_lifecycle::State &) {
 
 // joystick input is "negligible" if it is very close to (0, 0), basically
 bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
-	return (fabs(new_joystick_rotate) + fabs(new_joystick_drive) < THRESHOLD);
+	(void) new_joystick_rotate;
+	(void) new_joystick_drive;
+	return false;
 }
 
 void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {

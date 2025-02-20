@@ -273,7 +273,7 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         string_msg,
         node_ptr,
         "/OdriveJsonPub",
-        std::chrono::seconds(10)
+        std::chrono::seconds(60)
     );
     auto json_res = nlohmann::json::parse(string_msg.data);
     if (response1 && json_res["Payload"].dump() == "\"Success\"") {
@@ -290,9 +290,10 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         string_msg,
         node_ptr,
         "/OdriveJsonPub",
-        std::chrono::seconds(10)
+        std::chrono::seconds(60)
     );
 
+    json_res = nlohmann::json::parse(string_msg.data);
     if (response2 && json_res["Payload"].dump() == "\"Success\"") {
         RCLCPP_INFO(get_logger(), "Second odrive response success!");
         RCLCPP_INFO(get_logger(), string_msg.data.c_str());
@@ -305,9 +306,10 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         string_msg,
         node_ptr,
         "/OdriveJsonPub",
-        std::chrono::seconds(10)
+        std::chrono::seconds(60)
     );
 
+    json_res = nlohmann::json::parse(string_msg.data);
     if (response3 && json_res["Payload"].dump() == "\"Success\"") {
         RCLCPP_INFO(get_logger(), "Third odrive response success!");
         RCLCPP_INFO(get_logger(), string_msg.data.c_str());
