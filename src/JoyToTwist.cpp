@@ -19,7 +19,7 @@ JoyToTwist::JoyToTwist(const rclcpp::NodeOptions & options)
     scale_angular_ = this->get_parameter("scale_angular").as_double();
     
     // Publisher for twist msgs
-    twist_pub_ = create_publisher<geometry_msgs::msg::Twist>("/joystick_input", 10);
+    twist_pub_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
     
     joy_sub_ = create_subscription<sensor_msgs::msg::Joy>(
         "joy", 10, 

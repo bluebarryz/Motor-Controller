@@ -31,7 +31,7 @@ private:
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_shutdown(const rclcpp_lifecycle::State &);
 
-    // subscriber to arcade speed topic (/cmd_vel)
+    // subscriber to arcade speed topic (/arcade_speed)
     rclcpp::Subscription<motor_controller::msg::ArcadeSpeed>::SharedPtr arcade_sub;
     
     // publishers to set motor speeds

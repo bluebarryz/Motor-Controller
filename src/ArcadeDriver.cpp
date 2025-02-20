@@ -16,11 +16,11 @@ ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring ArcadeDriver");
     
     joystick_sub = create_subscription<geometry_msgs::msg::Twist>(
-        "/joystick_input", 10,
+        "/cmd_vel", 10,
         std::bind(&ArcadeDriver::joystick_callback, this, _1));
         
     arcade_pub = create_publisher<motor_controller::msg::ArcadeSpeed>(
-        "/cmd_vel", 10);
+        "/arcade_speed", 10);
 
 	state_manager_client = create_client<motor_controller::srv::ChangeState>("/state_manager/change_mc_state");
         

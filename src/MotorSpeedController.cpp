@@ -14,7 +14,7 @@ MotorSpeedController::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring MotorSpeedController");
     
     arcade_sub = create_subscription<motor_controller::msg::ArcadeSpeed>(
-        "/cmd_vel", 10,
+        "/arcade_speed", 10,
         std::bind(&MotorSpeedController::arcade_callback, this, _1));
 
     motor_speeds_pub = create_publisher<motor_controller::msg::MotorSpeeds>(
