@@ -22,4 +22,7 @@ ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} #
 
 
 # example json pub
-#ros2 topic pub --once /OdriveJsonPub std_msgs/msg/String "{data: '{\"Stage\": \"run\", \"Payload\": \"Success\"}'}"
+ros2 topic pub --once /OdriveJsonPub std_msgs/msg/String "{data: '{\"Stage\": \"run\", \"Payload\": \"Success\"}'}"
+
+# Example velocity pub
+ros2 topic pub /cmd_vel geometry_msgs/msg/TwistStamped '{header: {stamp: {sec: 0, nanosec: 0}, frame_id: "base_link"}, twist: {linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}'

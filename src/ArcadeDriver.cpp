@@ -15,7 +15,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring ArcadeDriver");
     
-    joystick_sub = create_subscription<geometry_msgs::msg::Twist>(
+    joystick_sub = create_subscription<geometry_msgs::msg::TwistStamped>(
         "/cmd_vel", 10,
         std::bind(&ArcadeDriver::joystick_callback, this, _1));
         
@@ -86,7 +86,7 @@ bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate
 	return false;
 }
 
-void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+void ArcadeDriver::joystick_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
 	// Ignore Twist msg if component is inactive
 	if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
 		RCLCPP_WARN(get_logger(), "Received twist message while not active, ignoring...");
@@ -94,10 +94,10 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
 	}
 
 	RCLCPP_INFO(get_logger(), "Received Twist message - linear.x: %.2f, angular.z: %.2f",
-				msg->linear.x, msg->angular.z);
+				msg->twist.linear.x, msg->twist.angular.z);
 
-	float joystick_drive = msg->linear.x;
-	float joystick_rotate = msg->angular.z;
+	float joystick_drive = msg->twist.linear.x;
+	float joystick_rotate = msg->twist.angular.z;
 
 	if (is_negligible_joystick_change(joystick_rotate, joystick_drive)) {
 		RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Negligibe joystick change");
