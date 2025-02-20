@@ -62,6 +62,8 @@ StateManager::StateManager(const rclcpp::NodeOptions &options)
 // Receives response from ODrive
 void StateManager::odrive_sub_callback(const std_msgs::msg::String::SharedPtr odrive_response) {
     json_msg_ = nlohmann::json::parse(odrive_response->data);
+    RCLCPP_INFO(get_logger(), "received json msg");
+    RCLCPP_INFO(get_logger(), json_msg_["Payload"].dump().c_str());
 }
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
@@ -273,9 +275,12 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         "/OdriveJsonPub",
         std::chrono::seconds(10)
     );
-
-    if (response1) {
+    auto json_res = nlohmann::json::parse(string_msg.data);
+    if (response1 && json_res["Payload"].dump() == "\"Success\"") {
         RCLCPP_INFO(get_logger(), "First odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
+        RCLCPP_INFO(get_logger(), json_res["Payload"].dump().c_str());
+        RCLCPP_INFO(get_logger(),  "truth: %d", json_res["Payload"].dump() == "\"Success\"");
         publish_odrive_request(odrive_req2_json);
     } else {
         RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
@@ -288,8 +293,9 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         std::chrono::seconds(10)
     );
 
-    if (response2) {
+    if (response2 && json_res["Payload"].dump() == "\"Success\"") {
         RCLCPP_INFO(get_logger(), "Second odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
         publish_odrive_request(odrive_req3_json);
     } else {
         RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
@@ -302,8 +308,9 @@ TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_
         std::chrono::seconds(10)
     );
 
-    if (response3) {
+    if (response3 && json_res["Payload"].dump() == "\"Success\"") {
         RCLCPP_INFO(get_logger(), "Third odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
     } else {
         RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
     }
