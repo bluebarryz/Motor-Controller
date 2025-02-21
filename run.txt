@@ -1,8 +1,6 @@
 # Run the following sequence of commands to test StateManager, ArcadeDriver, and MotorSpeedController together
 
 # Get components ready
-ros2 lifecycle set /state_manager configure
-ros2 lifecycle set /state_manager activate
 ros2 lifecycle set /arcade_driver configure
 ros2 lifecycle set /motor_speed_controller configure
 ros2 lifecycle set /motor_speed_controller activate
@@ -18,6 +16,12 @@ ros2 lifecycle get /arcade_driver
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 7 (VEL_CONTROL)
 
 # Deactivate velocity control transition
-ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 24, label: 'TRANSITION_DEACTIVATE_VEL_CONTROL'}}"
-ros2 lifecycle get /arcade_driver
-ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 2 (IDLE)
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 64, label: 'reset to uninit'}}"
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 0 (UNINIT)
+
+
+# example json pub
+ros2 topic pub --once /OdriveJsonPub std_msgs/msg/String "{data: '{\"Stage\": \"run\", \"Payload\": \"Success\"}'}"
+
+# Example velocity pub
+ros2 topic pub /cmd_vel geometry_msgs/msg/TwistStamped '{header: {stamp: {sec: 0, nanosec: 0}, frame_id: "base_link"}, twist: {linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}'

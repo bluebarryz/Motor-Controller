@@ -1,0 +1,9 @@
+# To deactivate/reset the state
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 64, label: 'reset to uninit'}}"
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 0 (UNINIT)
+
+# Calibration transition 
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 6, label: 'calibrate'}}"
+
+# Activate velocity control transition
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 12, label: 'active_vel_control'}}"

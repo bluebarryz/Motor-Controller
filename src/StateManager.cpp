@@ -1,25 +1,12 @@
 #include "motor_controller/StateManager.hpp"
 
-// using namespace motor_controller::msg;
-
-namespace composition {
 
 using TransitionCallbackReturn = StateManager::TransitionCallbackReturn;
 
 StateManager::StateManager(const rclcpp::NodeOptions &options)
-    : LifecycleNode("state_manager", options), current_state_{State::UNINIT} {
-    RCLCPP_INFO(get_logger(), "Initializing StateManager lifecycle");
+    : Node("state_manager", options), current_state_{State::UNINIT} {
+    RCLCPP_INFO(get_logger(), "Initializing StateManager");
 
-    init_transition_map();
-    init_callback_map();
-    init_predicate_map();
-    init_transition_type_map();
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_configure(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Configuring StateManager");
-    
     change_state_server = create_service<motor_controller::srv::ChangeState>(
         "~/change_mc_state",
         std::bind(&StateManager::handle_change_state, this, std::placeholders::_1, std::placeholders::_2));
@@ -29,14 +16,25 @@ StateManager::on_configure(const rclcpp_lifecycle::State &) {
         std::bind(&StateManager::handle_get_state, this, std::placeholders::_1, std::placeholders::_2));
 
     arcade_driver_lifecycle_client = create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
+    odrive_sub = create_subscription<std_msgs::msg::String>(
+        "/OdriveJsonPub", 10,
+        std::bind(&StateManager::odrive_sub_callback, this, std::placeholders::_1));
 
-    if (!change_state_server || !get_state_server) {
-        RCLCPP_ERROR(get_logger(), "Failed to create services");
-        return CallbackReturn::ERROR;
-    }
+    odrive_pub = create_publisher<std_msgs::msg::String>(
+        "/OdriveJsonSub", 10);
 
-    RCLCPP_INFO(get_logger(), "StateManager configured successfully");
-    return CallbackReturn::SUCCESS;
+    init_transition_map();
+    init_callback_map();
+    init_predicate_map();
+    init_transition_type_map();
+}
+
+
+// Receives response from ODrive
+void StateManager::odrive_sub_callback(const std_msgs::msg::String::SharedPtr odrive_response) {
+    json_msg_ = nlohmann::json::parse(odrive_response->data);
+    RCLCPP_INFO(get_logger(), "received json msg");
+    RCLCPP_INFO(get_logger(), json_msg_["Payload"].dump().c_str());
 }
 
 void StateManager::handle_change_state(const std::shared_ptr<motor_controller::srv::ChangeState::Request> request,
@@ -75,7 +73,18 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
         }
         }
     } else if (transition_type == Transition::TYPE_C) {
-        //TODO
+        if (current_state_ == State::VEL_CONTROL) {    
+            auto deactivate_vel_request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+            auto deactivate_vel_response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+            deactivate_vel_request->transition.id = Transition::TRANSITION_DEACTIVATE_VEL_CONTROL;
+            deactivate_vel_request->transition.label = "Deactivate vel control";
+            handle_change_state(deactivate_vel_request, deactivate_vel_response);
+        }
+        
+        {
+            std::lock_guard<std::recursive_mutex> lock(state_mutex_);
+            current_state_ = next_state;
+        }
     } else if (transition_type == Transition::TYPE_D) {
     }
 
@@ -122,6 +131,13 @@ void StateManager::init_transition_map() {
             State::IDLE},
         {{State::TRANSITION_STATE_DEACTIVATING_VEL_CONTROL, Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE},
             State::IDLE},
+
+        {{State::VEL_CONTROL, Transition::TRANSITION_RESET},
+            State::UNINIT},
+        {{State::IDLE, Transition::TRANSITION_RESET},
+            State::UNINIT},
+        {{State::VEL_CONTROL, Transition::TRANSITION_RESET},
+            State::UNINIT},
     };
 }
 
@@ -142,6 +158,8 @@ void StateManager::init_callback_map() {
                 (void)transition_id;
                 return this->change_arcade_driver_state(lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE);
             }}
+        // {Transition::TRANSITION_RESET,
+        //     std::bind(&StateManager::reset_state, this, std::placeholders::_1)},
     };
 }
 
@@ -175,6 +193,7 @@ void StateManager::init_transition_type_map() {
         {Transition::TRANSITION_SHUTDOWN, Transition::TYPE_A},
         {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, Transition::TYPE_A},
         {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, Transition::TYPE_A},
+        {Transition::TRANSITION_RESET, Transition::TYPE_C},
 
         // TYPE_B transitions
         {Transition::TRANSITION_CALIBRATE_COMPLETE, Transition::TYPE_B},
@@ -203,37 +222,6 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
 }
 
 
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_activate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Activating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_deactivate(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Deactivating StateManager");
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_cleanup(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Cleaning up StateManager");
-    
-    change_state_server.reset();
-    get_state_server.reset();
-    
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-StateManager::on_shutdown(const rclcpp_lifecycle::State &) {
-    RCLCPP_INFO(get_logger(), "Shutting down StateManager");
-
-    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
 TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t arcade_lifecycle_transition) {
     auto arcade_driver_lifecycle_client = this->create_client<lifecycle_msgs::srv::ChangeState>("/arcade_driver/change_state");
     
@@ -255,10 +243,93 @@ TransitionCallbackReturn StateManager::change_arcade_driver_state(const uint8_t 
     return TransitionCallbackReturn::SUCCESS;
 }
 
+void StateManager::publish_odrive_request(const nlohmann::json& req_json) {
+    std_msgs::msg::String req_msg;
+    req_msg.data = req_json.dump();  // Convert JSON to string
+    odrive_pub->publish(req_msg);
+}
+
+TransitionCallbackReturn StateManager::reset_state(const uint8_t transition_id) {
+    (void) transition_id;
+    auto calibrate_request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+    auto calibrate_response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+    calibrate_request->transition.id = 6;  // Transition::TRANSITION_CALIBRATE
+    calibrate_request->transition.label = "calibrate";
+    handle_change_state(calibrate_request, calibrate_response);
+
+    if (calibrate_response->success) {
+        // Second request - velocity control
+        auto vel_request = std::make_shared<motor_controller::srv::ChangeState::Request>();
+        auto vel_response = std::make_shared<motor_controller::srv::ChangeState::Response>();
+        vel_request->transition.id = 12;  // Transition::TRANSITION_ACTIVE_VEL_CONTROL
+        vel_request->transition.label = "active_vel_control";
+        handle_change_state(vel_request, vel_response);
+    }
+
+    return TransitionCallbackReturn::SUCCESS;
+}
+
 TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
     (void)transition_id;
     RCLCPP_INFO(get_logger(), "Pre-calibration complete!");
 
+    std_msgs::msg::String string_msg;
+    
+    // Get shared_ptr to this node
+    auto node_ptr = std::dynamic_pointer_cast<rclcpp::Node>(shared_from_this());
+    
+    publish_odrive_request(odrive_req1_json);
+
+    // Wait for message
+    bool response1 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(60)
+    );
+    auto json_res = nlohmann::json::parse(string_msg.data);
+    if (response1 && json_res["Payload"].dump() == "\"Success\"") {
+        RCLCPP_INFO(get_logger(), "First odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
+        RCLCPP_INFO(get_logger(), json_res["Payload"].dump().c_str());
+        RCLCPP_INFO(get_logger(),  "truth: %d", json_res["Payload"].dump() == "\"Success\"");
+        publish_odrive_request(odrive_req2_json);
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
+    }
+
+    bool response2 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(60)
+    );
+
+    json_res = nlohmann::json::parse(string_msg.data);
+    if (response2 && json_res["Payload"].dump() == "\"Success\"") {
+        RCLCPP_INFO(get_logger(), "Second odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
+        publish_odrive_request(odrive_req3_json);
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
+    }
+
+    bool response3 = rclcpp::wait_for_message(
+        string_msg,
+        node_ptr,
+        "/OdriveJsonPub",
+        std::chrono::seconds(60)
+    );
+
+    json_res = nlohmann::json::parse(string_msg.data);
+    if (response3 && json_res["Payload"].dump() == "\"Success\"") {
+        RCLCPP_INFO(get_logger(), "Third odrive response success!");
+        RCLCPP_INFO(get_logger(), string_msg.data.c_str());
+    } else {
+        RCLCPP_ERROR(get_logger(), "Failed to receive odrive response within timeout");
+    }
+
+    // Can complete the transition now
     auto request = std::make_shared<motor_controller::srv::ChangeState::Request>();
     auto response = std::make_shared<motor_controller::srv::ChangeState::Response>();
     request->transition.id = Transition::TRANSITION_CALIBRATE_COMPLETE;
@@ -277,7 +348,18 @@ TransitionCallbackReturn StateManager::shutdown(const uint8_t transition_id) {
     return TransitionCallbackReturn::SUCCESS;
 }
 
-} // namespace composition
+int main(int argc, char* argv[])
+{
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions options;
+  auto node = std::make_shared<StateManager>(options);
+  
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  
+  executor.spin();
+  
+  rclcpp::shutdown();
+  return 0;
+}
 
-#include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(composition::StateManager)

@@ -15,12 +15,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 ArcadeDriver::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring ArcadeDriver");
     
-    joystick_sub = create_subscription<geometry_msgs::msg::Twist>(
-        "/joystick_input", 10,
+    joystick_sub = create_subscription<geometry_msgs::msg::TwistStamped>(
+        "/cmd_vel", 10,
         std::bind(&ArcadeDriver::joystick_callback, this, _1));
         
     arcade_pub = create_publisher<motor_controller::msg::ArcadeSpeed>(
-        "/cmd_vel", 10);
+        "/arcade_speed", 10);
 
 	state_manager_client = create_client<motor_controller::srv::ChangeState>("/state_manager/change_mc_state");
         
@@ -81,10 +81,12 @@ ArcadeDriver::on_shutdown(const rclcpp_lifecycle::State &) {
 
 // joystick input is "negligible" if it is very close to (0, 0), basically
 bool ArcadeDriver::is_negligible_joystick_change(const float new_joystick_rotate, const float new_joystick_drive) {
-	return (fabs(new_joystick_rotate) + fabs(new_joystick_drive) < THRESHOLD);
+	(void) new_joystick_rotate;
+	(void) new_joystick_drive;
+	return false;
 }
 
-void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+void ArcadeDriver::joystick_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
 	// Ignore Twist msg if component is inactive
 	if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
 		RCLCPP_WARN(get_logger(), "Received twist message while not active, ignoring...");
@@ -92,10 +94,10 @@ void ArcadeDriver::joystick_callback(const geometry_msgs::msg::Twist::SharedPtr 
 	}
 
 	RCLCPP_INFO(get_logger(), "Received Twist message - linear.x: %.2f, angular.z: %.2f",
-				msg->linear.x, msg->angular.z);
+				msg->twist.linear.x, msg->twist.angular.z);
 
-	float joystick_drive = msg->linear.x;
-	float joystick_rotate = msg->angular.z;
+	float joystick_drive = msg->twist.linear.x;
+	float joystick_rotate = msg->twist.angular.z;
 
 	if (is_negligible_joystick_change(joystick_rotate, joystick_drive)) {
 		RCLCPP_INFO(rclcpp::get_logger("ArcadeDriver"), "Negligibe joystick change");

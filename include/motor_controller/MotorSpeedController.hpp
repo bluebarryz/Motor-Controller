@@ -6,6 +6,8 @@
 #include "motor_controller/msg/arcade_speed.hpp"
 #include "motor_controller/msg/motor_speeds.hpp"
 #include <lifecycle_msgs/msg/state.hpp>
+#include <nlohmann/json.hpp>
+#include <std_msgs/msg/string.hpp>
 
 
 namespace composition {
@@ -29,15 +31,25 @@ private:
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_shutdown(const rclcpp_lifecycle::State &);
 
-    // subscriber to arcade speed topic (/cmd_vel)
+    // subscriber to arcade speed topic (/arcade_speed)
     rclcpp::Subscription<motor_controller::msg::ArcadeSpeed>::SharedPtr arcade_sub;
     
-    // publisher(s) to set motor speeds
+    // publishers to set motor speeds
     rclcpp_lifecycle::LifecyclePublisher<motor_controller::msg::MotorSpeeds>::SharedPtr motor_speeds_pub;
+    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr odrive_pub;
 
-    // function(s) to compute motor speeds
+    // functions to compute motor speeds
     void arcade_callback(const motor_controller::msg::ArcadeSpeed arcade_msg);
     motor_controller::msg::MotorSpeeds compute_motor_speeds(const float arcade_l, const float arcade_r);
+    
+    void publish_speeds_odrive(motor_controller::msg::MotorSpeeds speeds);
+    const nlohmann::json odrive_speed_req_json = {
+        {"Stage", "run"},
+        {"Type", "request"},
+        {"Target", "Drivetrain"},
+        {"Command", "Set_Input_Vel"}
+    };
+    const float VEL_SCALER = 40;
 };
 
 } // namespace composition
