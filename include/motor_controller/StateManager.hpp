@@ -27,21 +27,6 @@ public:
         ERROR = lifecycle_msgs::msg::Transition::TRANSITION_CALLBACK_ERROR
     };
 private:
-    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    // on_configure(const rclcpp_lifecycle::State &);
-    
-    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    // on_activate(const rclcpp_lifecycle::State &);
-    
-    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    // on_deactivate(const rclcpp_lifecycle::State &);
-    
-    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    // on_cleanup(const rclcpp_lifecycle::State &);
-    
-    // rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    // on_shutdown(const rclcpp_lifecycle::State &);
-
     rclcpp::Service<motor_controller::srv::ChangeState>::SharedPtr change_state_server;
     rclcpp::Service<motor_controller::srv::GetState>::SharedPtr get_state_server;
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr arcade_driver_lifecycle_client;
@@ -78,7 +63,6 @@ private:
 
     TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
-    TransitionCallbackReturn reset_state(const uint8_t transition_id);
     TransitionCallbackReturn shutdown(const uint8_t transition_id);
 
     void publish_odrive_request(const nlohmann::json& req_json);

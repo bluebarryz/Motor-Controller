@@ -41,7 +41,6 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
     std::shared_ptr<motor_controller::srv::ChangeState::Response> response) {
     RCLCPP_INFO(get_logger(), "calling handle_change_state. Current state: %d. Transition: %d", current_state_, request->transition.id);
 
-    // const auto& transition_map = get_transition_map();
     // check if transition is legal
     uint8_t transition = request->transition.id;
     auto tr = transition_map_.find({current_state_, transition});
@@ -86,6 +85,7 @@ void StateManager::handle_change_state(const std::shared_ptr<motor_controller::s
             current_state_ = next_state;
         }
     } else if (transition_type == Transition::TYPE_D) {
+        // TODO: error handler transitions
     }
 
     response->success = true;
@@ -193,7 +193,6 @@ void StateManager::init_transition_type_map() {
         {Transition::TRANSITION_SHUTDOWN, Transition::TYPE_A},
         {Transition::TRANSITION_DEACTIVATE_POS_CONTROL, Transition::TYPE_A},
         {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL, Transition::TYPE_A},
-        {Transition::TRANSITION_RESET, Transition::TYPE_C},
 
         // TYPE_B transitions
         {Transition::TRANSITION_CALIBRATE_COMPLETE, Transition::TYPE_B},
@@ -202,14 +201,17 @@ void StateManager::init_transition_type_map() {
         {Transition::TRANSITION_ERR_PROCESSING_ERROR, Transition::TYPE_B},
         {Transition::TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B},
         {Transition::TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE, Transition::TYPE_B}, 
+        
+        // TYPE_C transition (reset)
+        {Transition::TRANSITION_RESET, Transition::TYPE_C},
 
-        // TYPE_C transitions (all error transitions)
-        {Transition::TRANSITION_CALIBRATE_ERROR, Transition::TYPE_C},
-        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_C},
-        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_C},
-        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_C},
-        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_C},
-        {Transition::TRANSITION_SHUTDOWN_ERROR, Transition::TYPE_C}
+        // TYPE_D transitions (all error transitions)
+        {Transition::TRANSITION_CALIBRATE_ERROR, Transition::TYPE_D},
+        {Transition::TRANSITION_ACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_D},
+        {Transition::TRANSITION_DEACTIVATE_POS_CONTROL_ERROR, Transition::TYPE_D},
+        {Transition::TRANSITION_ACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_D},
+        {Transition::TRANSITION_DEACTIVATE_VEL_CONTROL_ERROR, Transition::TYPE_D},
+        {Transition::TRANSITION_SHUTDOWN_ERROR, Transition::TYPE_D}
     };
 }
 
@@ -218,7 +220,6 @@ void StateManager::handle_get_state(const std::shared_ptr<motor_controller::srv:
     std::lock_guard<std::recursive_mutex> lock(state_mutex_);
     (void)request;
     response->current_state.id = current_state_;
-    // response->current_state.label = state_to_string(current_state_);
 }
 
 
@@ -247,26 +248,6 @@ void StateManager::publish_odrive_request(const nlohmann::json& req_json) {
     std_msgs::msg::String req_msg;
     req_msg.data = req_json.dump();  // Convert JSON to string
     odrive_pub->publish(req_msg);
-}
-
-TransitionCallbackReturn StateManager::reset_state(const uint8_t transition_id) {
-    (void) transition_id;
-    auto calibrate_request = std::make_shared<motor_controller::srv::ChangeState::Request>();
-    auto calibrate_response = std::make_shared<motor_controller::srv::ChangeState::Response>();
-    calibrate_request->transition.id = 6;  // Transition::TRANSITION_CALIBRATE
-    calibrate_request->transition.label = "calibrate";
-    handle_change_state(calibrate_request, calibrate_response);
-
-    if (calibrate_response->success) {
-        // Second request - velocity control
-        auto vel_request = std::make_shared<motor_controller::srv::ChangeState::Request>();
-        auto vel_response = std::make_shared<motor_controller::srv::ChangeState::Response>();
-        vel_request->transition.id = 12;  // Transition::TRANSITION_ACTIVE_VEL_CONTROL
-        vel_request->transition.label = "active_vel_control";
-        handle_change_state(vel_request, vel_response);
-    }
-
-    return TransitionCallbackReturn::SUCCESS;
 }
 
 TransitionCallbackReturn StateManager::pre_calibration(const uint8_t transition_id) {
