@@ -78,6 +78,7 @@ private:
 
     TransitionCallbackReturn change_arcade_driver_state(const uint8_t arcade_lifecycle_transition);
     TransitionCallbackReturn pre_calibration(const uint8_t transition_id);
+    TransitionCallbackReturn reset_state(const uint8_t transition_id);
     TransitionCallbackReturn shutdown(const uint8_t transition_id);
 
     void publish_odrive_request(const nlohmann::json& req_json);

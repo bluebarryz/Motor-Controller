@@ -75,6 +75,8 @@ uint8 TRANSITION_ACTIVATE_ARCADE_CONTROL_COMPLETE = 50
 # Generic deactivate arcade driver complete
 uint8 TRANSITION_DEACTIVATE_ARCADE_CONTROL_COMPLETE = 51
 
+# Transition from any (non-intermediate) state to UNINIT
+uint8 TRANSITION_RESET = 64
 
 
 # Transition result codes

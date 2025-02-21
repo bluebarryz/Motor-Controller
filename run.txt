@@ -16,9 +16,8 @@ ros2 lifecycle get /arcade_driver
 ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 7 (VEL_CONTROL)
 
 # Deactivate velocity control transition
-ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 24, label: 'TRANSITION_DEACTIVATE_VEL_CONTROL'}}"
-ros2 lifecycle get /arcade_driver
-ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 2 (IDLE)
+ros2 service call /state_manager/change_mc_state motor_controller/srv/ChangeState "{transition: {id: 64, label: 'reset to uninit'}}"
+ros2 service call /state_manager/get_mc_state motor_controller/srv/GetState {} # Expect State 0 (UNINIT)
 
 
 # example json pub
