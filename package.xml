@@ -16,7 +16,6 @@
   <depend>geometry_msgs</depend>
   <depend>lifecycle_msgs</depend>
   <depend>sensor_msgs</depend>
-  <depend>joy</depend>
   <depend>std_msgs</depend>
   <depend>nlohmann_json</depend>
 

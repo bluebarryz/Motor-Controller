@@ -31,22 +31,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 ament_export_dependencies(rosidl_default_runtime)
 
-#### joy_to_twist component ###
-add_library(joy_to_twist SHARED
-  src/JoyToTwist.cpp
-)
-target_compile_definitions(joy_to_twist
-  PRIVATE "COMPOSITION_BUILDING_DLL"
-)
-ament_target_dependencies(joy_to_twist
-  "rclcpp"
-  "rclcpp_components"
-  "sensor_msgs"
-  "geometry_msgs"
-)
-rclcpp_components_register_nodes(joy_to_twist "motor_controller::JoyToTwist")
-#########
-
 #### arcade_driver component ###
 add_library(arcade_driver SHARED src/ArcadeDriver.cpp)
 target_compile_definitions(arcade_driver
@@ -90,25 +74,7 @@ rosidl_target_interfaces(state_manager ${PROJECT_NAME} "rosidl_typesupport_cpp")
 #########
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_cmake_gtest REQUIRED)
   
-  ament_add_gtest(joystick_test test/joystick_test.cpp)
-  
-  target_link_libraries(joystick_test
-    arcade_driver
-    motor_speed_controller
-    joy_to_twist
-  )
-  
-  rosidl_target_interfaces(joystick_test ${PROJECT_NAME} "rosidl_typesupport_cpp")
-  
-  ament_target_dependencies(joystick_test
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-  )
 endif()
 
 # Install targets
@@ -116,7 +82,6 @@ install(TARGETS
   arcade_driver
   motor_speed_controller
   state_manager
-  joy_to_twist
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib 
   RUNTIME DESTINATION bin
