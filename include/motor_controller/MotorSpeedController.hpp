@@ -49,6 +49,7 @@ private:
         {"Target", "Drivetrain"},
         {"Command", "Set_Input_Vel"}
     };
+    const float VEL_SCALER = 40;
 };
 
 } // namespace composition
