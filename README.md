@@ -1,5 +1,7 @@
 # `motor_controller` package
 
+For the Autonomy Repo in development, see https://github.com/WATonomous/wato_rover
+
 ## How to run
 
 - Launch: `ros2 launch launch.py`. This will automatically trigger transitions and calibration to reach the `VEL_CONTROL` state.
